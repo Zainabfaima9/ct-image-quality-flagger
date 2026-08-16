@@ -6,3 +6,4 @@ pydicom
 huggingface_hub
 matplotlib
 opencv-python-headless
+pandas
