@@ -194,7 +194,7 @@ st.divider()
 st.subheader("🖼️ Try a sample image")
 sample_cols = st.columns(4)
 sample_files = {
-    "Sample 1 (Acceptable)": "sample_images/sample_acceptable_1.png",
+    "Sample 1 (Acceptable)": "sample_images/sample_acceptable_ 1.png",
     "Sample 2 (Acceptable)": "sample_images/sample_acceptable_2.png",
     "Sample 3 (Flagged)": "sample_images/sample_flagged_1.png",
     "Sample 4 (Flagged)": "sample_images/sample_flagged_2.png",
