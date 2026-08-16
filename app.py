@@ -52,7 +52,7 @@ def dicom_to_array(dicom_bytes, window_center=40, window_width=400):
     hu = np.clip(hu, lower, upper)
     hu = ((hu - lower) / (upper - lower) * 255).astype(np.uint8)
     img = Image.fromarray(hu).convert('RGB').resize((224, 224))
-    
+
     metadata = {}
     for tag, name in [('KVP', 'KVP'), ('XRayTubeCurrent', 'Tube Current (mA)'),
                        ('Exposure', 'Exposure (mAs)'), ('SliceThickness', 'Slice Thickness (mm)'),
@@ -166,7 +166,6 @@ def render_result(name, img_array, heatmap, score, metadata=None):
     with col1:
         st.image(img_array.astype('uint8'), caption=f"{name} — Original", use_column_width=True)
     with col2:
-        fig_placeholder = img_array.astype('uint8').copy()
         st.image(img_array.astype('uint8'), caption="Grad-CAM", use_column_width=True)
     st.markdown(f"**Score:** {score:.3f} — {tier_text}")
     st.progress(min(float(score), 1.0))
@@ -193,13 +192,12 @@ if uploaded_files:
             img_array, heatmap, score = process_image(img_pil)
             render_result(f.name, img_array, heatmap, score)
 
-    # Series-level summary
     if len(results) > 1:
         st.subheader("📈 Series Summary")
         flagged_count = sum(1 for r in results if r['Score'] >= THRESHOLD)
-        st.metric("Slices flagged for review", f"{flagged_count} / {len(results)}", 
+        st.metric("Slices flagged for review", f"{flagged_count} / {len(results)}",
                    f"{flagged_count/len(results)*100:.1f}%")
-        
+
         df = pd.DataFrame(results)
         st.dataframe(df, use_container_width=True)
         csv = df.to_csv(index=False).encode('utf-8')
