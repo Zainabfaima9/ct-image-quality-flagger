@@ -32,10 +32,7 @@ HF_REPO = "zainabfatima9/ct-image-quality-flagger"
 MODEL_FILENAME = "ct_quality_model_21patients_v2.h5"
 
 IMAGE_SIZE = (224, 224)
-
-# Project-specific review threshold
 THRESHOLD = 0.25
-
 GRADCAM_LAYER = "block4_conv3"
 
 WINDOW_CENTER = 40
@@ -55,9 +52,6 @@ if "results" not in st.session_state:
 if "selected_result" not in st.session_state:
     st.session_state.selected_result = None
 
-if "analyze_mode" not in st.session_state:
-    st.session_state.analyze_mode = None
-
 
 def navigate(page):
     st.session_state.page = page
@@ -65,25 +59,14 @@ def navigate(page):
 
 
 # ============================================================
-# PROFESSIONAL UI
+# CUSTOM CSS
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    :root {
-        --navy: #102a43;
-        --blue: #247ba0;
-        --blue-light: #eaf5f9;
-        --ink: #172b4d;
-        --muted: #64748b;
-        --line: #dbe5ec;
-        --bg: #f7fafc;
-        --green: #237a57;
-        --orange: #b45309;
-        --red: #b42318;
-    }
+    /* ---------- GENERAL ---------- */
 
     .stApp {
         background: #f7fafc;
@@ -91,243 +74,215 @@ st.markdown(
 
     .block-container {
         max-width: 1180px;
-        padding-top: 1.1rem;
-        padding-bottom: 3rem;
+        padding-top: 1rem;
+        padding-bottom: 2.5rem;
     }
 
-    #MainMenu {
-        visibility: hidden;
-    }
-
+    #MainMenu,
     footer {
         visibility: hidden;
     }
 
-    /* ========================================================
-       BRAND
-       ======================================================== */
+    /* ---------- NAVIGATION ---------- */
 
-    .brand-name {
-        font-size: 1.2rem;
+    .nav-brand {
+        font-size: 1.05rem;
         font-weight: 800;
         color: #102a43;
         margin-bottom: 0;
     }
 
-    .brand-subtitle {
-        color: #64748b;
-        font-size: .76rem;
-        margin-top: .15rem;
+    .nav-sub {
+        font-size: .72rem;
+        color: #718096;
+        margin-top: -2px;
     }
 
-    /* ========================================================
-       HERO
-       ======================================================== */
+    .nav-divider {
+        margin-top: .35rem;
+        margin-bottom: 1.3rem;
+        border-bottom: 1px solid #dbe5ec;
+    }
+
+    /* ---------- HERO ---------- */
 
     .hero {
         background: linear-gradient(
             135deg,
-            #0f2942 0%,
-            #174e73 55%,
-            #2b82a8 100%
+            #102a43 0%,
+            #174e73 60%,
+            #247ba0 100%
         );
-        border-radius: 24px;
-        padding: 3.2rem 3.2rem;
+
+        border-radius: 22px;
+        padding: 2.7rem 3rem;
         color: white;
-        margin: .8rem 0 1.6rem 0;
-        box-shadow: 0 16px 38px rgba(16,42,67,.15);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 12px 32px rgba(16,42,67,.13);
     }
 
     .hero-kicker {
-        font-size: .72rem;
+        font-size: .7rem;
         letter-spacing: .12em;
-        font-weight: 700;
-        opacity: .82;
-        margin-bottom: 1rem;
+        font-weight: 750;
+        opacity: .78;
+        margin-bottom: .75rem;
     }
 
     .hero h1 {
-        font-size: clamp(2.1rem, 5vw, 3.45rem);
-        line-height: 1.05;
-        margin: 0 0 .85rem 0;
         color: white;
+        font-size: clamp(2rem, 5vw, 3.25rem);
+        line-height: 1.05;
+        margin: 0 0 .75rem 0;
         font-weight: 800;
     }
 
     .hero p {
-        max-width: 780px;
-        font-size: 1.03rem;
-        line-height: 1.65;
+        color: rgba(255,255,255,.9);
+        max-width: 720px;
+        line-height: 1.6;
         margin: 0;
-        color: rgba(255,255,255,.91);
+        font-size: 1rem;
     }
 
-    /* ========================================================
-       CARDS
-       ======================================================== */
+    /* ---------- CARDS ---------- */
 
-    .card {
+    .choice-card {
         background: white;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #dfe7ee;
         border-radius: 18px;
-        padding: 1.35rem;
-        box-shadow: 0 4px 16px rgba(15,23,42,.035);
+        padding: 1.4rem;
         height: 100%;
+        box-shadow: 0 4px 15px rgba(15,23,42,.035);
     }
 
-    .card-title {
+    .choice-icon {
+        font-size: 1.8rem;
+        margin-bottom: .5rem;
+    }
+
+    .choice-title {
         color: #102a43;
-        font-weight: 750;
-        font-size: 1.03rem;
-        margin-bottom: .45rem;
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin-bottom: .35rem;
     }
 
-    .card-text {
-        color: #526174;
-        line-height: 1.62;
-        font-size: .92rem;
+    .choice-text {
+        color: #607084;
+        font-size: .9rem;
+        line-height: 1.55;
+        min-height: 48px;
     }
+
+    .simple-card {
+        background: white;
+        border: 1px solid #e0e7ee;
+        border-radius: 16px;
+        padding: 1.2rem 1.3rem;
+        box-shadow: 0 3px 12px rgba(15,23,42,.03);
+    }
+
+    /* ---------- LABELS ---------- */
 
     .eyebrow {
         color: #247ba0;
-        font-size: .74rem;
+        font-size: .7rem;
         font-weight: 800;
-        letter-spacing: .1em;
+        letter-spacing: .11em;
         text-transform: uppercase;
+        margin-bottom: .25rem;
     }
 
-    /* ========================================================
-       SCORE
-       ======================================================== */
+    /* ---------- RESULT ---------- */
+
+    .score-box {
+        background: white;
+        border: 1px solid #dfe7ee;
+        border-radius: 18px;
+        padding: 1.35rem;
+        height: 100%;
+    }
 
     .score {
-        font-size: 3.25rem;
-        line-height: 1;
+        font-size: 3rem;
         font-weight: 850;
+        line-height: 1;
         color: #102a43;
+        margin: .25rem 0 .45rem;
     }
 
     .score-label {
-        color: #64748b;
-        font-size: .78rem;
-        font-weight: 700;
+        font-size: .72rem;
+        color: #718096;
         text-transform: uppercase;
-        letter-spacing: .06em;
-    }
-
-    /* ========================================================
-       EXPLANATION
-       ======================================================== */
-
-    .explain {
-        background: #eef7fa;
-        border-left: 4px solid #247ba0;
-        border-radius: 12px;
-        padding: 1rem 1.15rem;
-        color: #334e68;
-        line-height: 1.65;
+        letter-spacing: .07em;
+        font-weight: 750;
     }
 
     .action-box {
-        background: white;
-        border: 1px solid #dbe5ec;
         border-radius: 16px;
-        padding: 1.25rem;
-        margin-top: .8rem;
+        padding: 1.15rem 1.3rem;
+        margin-top: 1rem;
+        border: 1px solid #d9e5ec;
+        background: #f7fbfd;
     }
 
     .action-title {
-        color: #102a43;
-        font-weight: 800;
         font-size: 1rem;
-        margin-bottom: .55rem;
+        font-weight: 800;
+        color: #102a43;
+        margin-bottom: .35rem;
     }
 
     .action-text {
-        color: #526174;
-        line-height: 1.65;
-        font-size: .92rem;
+        color: #43566b;
+        line-height: 1.55;
+        font-size: .9rem;
     }
 
-    .limitation-box {
-        background: #fffaf0;
-        border: 1px solid #f1dfb5;
-        border-radius: 16px;
-        padding: 1.3rem;
-        color: #59451c;
-        line-height: 1.65;
+    /* ---------- INFO ---------- */
+
+    .small-info {
+        color: #607084;
+        font-size: .82rem;
+        line-height: 1.55;
     }
 
-    .research-box {
-        background: #f2f7fb;
-        border: 1px solid #d7e5ef;
-        border-radius: 16px;
-        padding: 1.3rem;
-        color: #334e68;
-        line-height: 1.65;
+    .why-box {
+        background: #eef7fa;
+        border-left: 4px solid #247ba0;
+        border-radius: 10px;
+        padding: .9rem 1rem;
+        color: #40566a;
+        font-size: .86rem;
+        line-height: 1.55;
     }
 
-    /* ========================================================
-       OPTION CARDS
-       ======================================================== */
-
-    .option-card {
-        background: white;
-        border: 1px solid #dce6ed;
-        border-radius: 20px;
-        padding: 1.65rem;
-        min-height: 235px;
-        box-shadow: 0 5px 18px rgba(15,23,42,.04);
-    }
-
-    .option-icon {
-        font-size: 2rem;
-        margin-bottom: .7rem;
-    }
-
-    .option-title {
-        color: #102a43;
-        font-size: 1.25rem;
-        font-weight: 800;
-        margin-bottom: .55rem;
-    }
-
-    .option-text {
-        color: #526174;
-        line-height: 1.65;
-        font-size: .92rem;
-    }
-
-    /* ========================================================
-       BUTTONS
-       ======================================================== */
+    /* ---------- BUTTONS ---------- */
 
     .stButton > button {
-        border-radius: 10px;
-        min-height: 2.65rem;
+        border-radius: 9px;
+        min-height: 2.55rem;
         font-weight: 650;
     }
 
-    /* ========================================================
-       FILE UPLOADER
-       ======================================================== */
+    /* ---------- FILE UPLOADER ---------- */
 
     [data-testid="stFileUploader"] {
         background: white;
         border: 1.5px dashed #8db9ca;
-        border-radius: 16px;
-        padding: .6rem;
+        border-radius: 15px;
+        padding: .5rem;
     }
 
-    /* ========================================================
-       MOBILE
-       ======================================================== */
+    /* ---------- MOBILE ---------- */
 
     @media (max-width: 700px) {
 
         .block-container {
-            padding-left: .85rem;
-            padding-right: .85rem;
+            padding-left: .8rem;
+            padding-right: .8rem;
         }
 
         .hero {
@@ -336,24 +291,9 @@ st.markdown(
         }
 
         .hero h1 {
-            font-size: 2.05rem;
+            font-size: 2.1rem;
         }
 
-        .hero p {
-            font-size: .92rem;
-        }
-
-        .hero-kicker {
-            font-size: .64rem;
-        }
-
-        .brand-name {
-            font-size: 1.05rem;
-        }
-
-        .option-card {
-            min-height: auto;
-        }
     }
 
     </style>
@@ -366,61 +306,37 @@ st.markdown(
 # TOP NAVIGATION
 # ============================================================
 
-brand, nav = st.columns(
-    [1.25, 2.75],
-    vertical_alignment="center",
-)
+nav_left, nav_right = st.columns([1.5, 3.5], vertical_alignment="center")
 
-with brand:
-
+with nav_left:
     st.markdown(
-        '<div class="brand-name">🩻 CT Image Quality Flagger</div>',
+        """
+        <div class="nav-brand">🩻 CT Image Quality Flagger</div>
+        <div class="nav-sub">AI-assisted research prototype</div>
+        """,
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        '<div class="brand-subtitle">'
-        'AI-assisted CT image-quality research prototype'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-
-with nav:
-
+with nav_right:
     n1, n2, n3, n4 = st.columns(4)
 
     with n1:
-        if st.button(
-            "Home",
-            use_container_width=True,
-        ):
-            st.session_state.analyze_mode = None
+        if st.button("Home", use_container_width=True):
             navigate("Home")
 
     with n2:
-        if st.button(
-            "Analyze",
-            use_container_width=True,
-        ):
+        if st.button("Analyze", use_container_width=True):
             navigate("Analyze")
 
     with n3:
-        if st.button(
-            "Results",
-            use_container_width=True,
-        ):
+        if st.button("Results", use_container_width=True):
             navigate("Results")
 
     with n4:
-        if st.button(
-            "Learn",
-            use_container_width=True,
-        ):
+        if st.button("Learn", use_container_width=True):
             navigate("Learn")
 
-
-st.divider()
+st.markdown('<div class="nav-divider"></div>', unsafe_allow_html=True)
 
 
 # ============================================================
@@ -455,9 +371,7 @@ try:
 
     model = load_model()
 
-    conv_layer_model, base_model = (
-        build_gradcam_extractor(model)
-    )
+    conv_layer_model, base_model = build_gradcam_extractor(model)
 
     MODEL_READY = True
     MODEL_ERROR = None
@@ -469,55 +383,24 @@ except Exception as exc:
 
 
 # ============================================================
-# IMAGE FUNCTIONS
+# IMAGE PROCESSING
 # ============================================================
 
 def dicom_to_image(data):
 
-    ds = pydicom.dcmread(
-        io.BytesIO(data)
-    )
+    ds = pydicom.dcmread(io.BytesIO(data))
 
-    pixels = ds.pixel_array.astype(
-        np.float32
-    )
+    pixels = ds.pixel_array.astype(np.float32)
 
-    slope = float(
-        getattr(
-            ds,
-            "RescaleSlope",
-            1,
-        )
-    )
+    slope = float(getattr(ds, "RescaleSlope", 1))
+    intercept = float(getattr(ds, "RescaleIntercept", 0))
 
-    intercept = float(
-        getattr(
-            ds,
-            "RescaleIntercept",
-            0,
-        )
-    )
+    hu = pixels * slope + intercept
 
-    hu = (
-        pixels * slope
-        + intercept
-    )
+    low = WINDOW_CENTER - WINDOW_WIDTH / 2
+    high = WINDOW_CENTER + WINDOW_WIDTH / 2
 
-    low = (
-        WINDOW_CENTER
-        - WINDOW_WIDTH / 2
-    )
-
-    high = (
-        WINDOW_CENTER
-        + WINDOW_WIDTH / 2
-    )
-
-    hu = np.clip(
-        hu,
-        low,
-        high,
-    )
+    hu = np.clip(hu, low, high)
 
     hu = (
         (hu - low)
@@ -528,10 +411,8 @@ def dicom_to_image(data):
     hu = np.clip(
         hu,
         0,
-        255,
-    ).astype(
-        np.uint8
-    )
+        255
+    ).astype(np.uint8)
 
     image = (
         Image.fromarray(hu)
@@ -557,10 +438,7 @@ def dicom_to_image(data):
         if hasattr(ds, tag):
 
             metadata[label] = str(
-                getattr(
-                    ds,
-                    tag,
-                )
+                getattr(ds, tag)
             )
 
     return image, metadata
@@ -574,39 +452,32 @@ def prepare_image(image):
         .resize(IMAGE_SIZE)
     )
 
-    arr = np.array(
-        image
-    ).astype(
-        np.uint8
-    )
+    arr = np.array(image).astype(np.uint8)
 
     model_input = np.expand_dims(
-        arr.astype(
-            np.float32
-        ),
+        arr.astype(np.float32),
         axis=0,
     )
 
-    model_input = preprocess_input(
-        model_input
-    )
+    model_input = preprocess_input(model_input)
 
-    return (
-        arr,
-        model_input,
-    )
+    return arr, model_input
 
+
+# ============================================================
+# MODEL SCORE
+# ============================================================
 
 def get_score(model_input):
 
-    preds = []
+    predictions = []
 
     # Original
-    preds.append(
+    predictions.append(
         float(
             model.predict(
                 model_input,
-                verbose=0,
+                verbose=0
             )[0][0]
         )
     )
@@ -614,14 +485,14 @@ def get_score(model_input):
     # Horizontal flip
     flipped = np.flip(
         model_input,
-        axis=2,
+        axis=2
     )
 
-    preds.append(
+    predictions.append(
         float(
             model.predict(
                 flipped,
-                verbose=0,
+                verbose=0
             )[0][0]
         )
     )
@@ -630,8 +501,8 @@ def get_score(model_input):
     image = model_input[0]
 
     center = (
-        112,
-        112,
+        IMAGE_SIZE[0] // 2,
+        IMAGE_SIZE[1] // 2
     )
 
     for angle in (-5, 5):
@@ -654,19 +525,19 @@ def get_score(model_input):
             axis=0,
         )
 
-        preds.append(
+        predictions.append(
             float(
                 model.predict(
                     rotated,
-                    verbose=0,
+                    verbose=0
                 )[0][0]
             )
         )
 
-    # Crop / zoom
+    # Small crop / zoom
     crop = image[
         11:213,
-        11:213,
+        11:213
     ]
 
     zoomed = cv2.resize(
@@ -679,38 +550,39 @@ def get_score(model_input):
         axis=0,
     )
 
-    preds.append(
+    predictions.append(
         float(
             model.predict(
                 zoomed,
-                verbose=0,
+                verbose=0
             )[0][0]
         )
     )
 
     return float(
-        np.mean(preds)
+        np.mean(predictions)
     )
 
 
+# ============================================================
+# GRAD-CAM
+# ============================================================
+
 def make_gradcam(
     image_array,
-    model_input,
+    model_input
 ):
 
     with tf.GradientTape() as tape:
 
-        conv_output = (
-            conv_layer_model(
-                model_input
-            )
+        conv_output = conv_layer_model(
+            model_input
         )
 
-        tape.watch(
-            conv_output
-        )
+        tape.watch(conv_output)
 
         x = conv_output
+
         found = False
 
         for layer in base_model.layers:
@@ -722,18 +594,19 @@ def make_gradcam(
                 found = True
 
         for layer in model.layers[1:]:
+
             x = layer(x)
 
         loss = x[:, 0]
 
     grads = tape.gradient(
         loss,
-        conv_output,
+        conv_output
     )
 
     pooled = tf.reduce_mean(
         grads,
-        axis=(0, 1, 2),
+        axis=(0, 1, 2)
     )
 
     conv = conv_output[0]
@@ -749,13 +622,11 @@ def make_gradcam(
 
     heatmap = tf.maximum(
         heatmap,
-        0,
+        0
     )
 
     heatmap /= (
-        tf.reduce_max(
-            heatmap
-        )
+        tf.reduce_max(heatmap)
         + 1e-8
     )
 
@@ -768,15 +639,11 @@ def make_gradcam(
     heatmap = np.clip(
         heatmap,
         0,
-        1,
+        1
     )
 
     heatmap_color = cv2.applyColorMap(
-        (
-            heatmap * 255
-        ).astype(
-            np.uint8
-        ),
+        (heatmap * 255).astype(np.uint8),
         cv2.COLORMAP_JET,
     )
 
@@ -788,32 +655,32 @@ def make_gradcam(
     image_array = np.clip(
         image_array,
         0,
-        255,
-    ).astype(
-        np.uint8
-    )
+        255
+    ).astype(np.uint8)
 
     overlay = cv2.addWeighted(
         image_array,
-        0.60,
+        .60,
         heatmap_color,
-        0.40,
+        .40,
         0,
     )
 
     return np.clip(
         overlay,
         0,
-        255,
-    ).astype(
-        np.uint8
-    )
+        255
+    ).astype(np.uint8)
 
+
+# ============================================================
+# COMPLETE ANALYSIS
+# ============================================================
 
 def analyze(image):
 
-    arr, model_input = (
-        prepare_image(image)
+    arr, model_input = prepare_image(
+        image
     )
 
     score = get_score(
@@ -822,13 +689,13 @@ def analyze(image):
 
     gradcam = make_gradcam(
         arr,
-        model_input,
+        model_input
     )
 
     return (
         arr,
         gradcam,
-        score,
+        score
     )
 
 
@@ -838,93 +705,69 @@ def analyze(image):
 
 def interpretation(score):
 
-    if score >= 0.50:
-
-        return {
-            "level": "Higher quality-risk signal",
-            "emoji": "🔴",
-            "status": "Review recommended",
-            "summary": (
-                "The model produced a relatively high "
-                "quality-risk score."
-            ),
-            "action": (
-                "Prioritize manual image-quality assessment. "
-                "Review image noise, motion, artifacts and "
-                "anatomical visibility. If the image appears "
-                "inadequate for the intended examination, follow "
-                "the department's established quality-control "
-                "pathway or seek appropriate senior/radiologist review."
-            ),
-        }
-
     if score >= THRESHOLD:
 
         return {
-            "level": "Borderline quality-risk signal",
-            "emoji": "🟠",
-            "status": "Additional review recommended",
-            "summary": (
-                "The model score has reached the project's "
-                "review threshold."
+            "status": "Review Needed",
+            "icon": "🟠",
+            "color": "warning",
+            "meaning": (
+                "The model detected a pattern that "
+                "resembles the image-quality problems "
+                "it was trained to flag."
             ),
             "action": (
-                "Perform an additional image-quality review. "
-                "Pay attention to noise, motion, artifacts and "
-                "whether the required anatomy remains adequately "
-                "visible. Use professional judgment and follow "
-                "local quality-control procedures."
+                "Visually review the image for excessive "
+                "noise, artifacts, or loss of useful detail "
+                "and confirm whether the image remains "
+                "adequate for the intended examination."
             ),
-        }
-
-    if score >= 0.15:
-
-        return {
-            "level": "Lower quality-risk signal",
-            "emoji": "🟡",
-            "status": "No automatic review flag",
-            "summary": (
-                "The score is below the project's review threshold, "
-                "although the model output still contains uncertainty."
-            ),
-            "action": (
-                "Continue routine image-quality assessment. "
-                "Check image noise, motion, artifacts, anatomical "
-                "coverage and whether the image is suitable for "
-                "the intended examination."
+            "next": (
+                "If the image is genuinely non-diagnostic, "
+                "follow your department's normal clinical "
+                "protocol. Do not repeat a scan based on "
+                "the AI flag alone."
             ),
         }
 
     return {
-        "level": "Low quality-risk signal",
-        "emoji": "🟢",
-        "status": "No automatic review flag",
-        "summary": (
-            "The model produced a relatively low "
-            "quality-risk score."
+        "status": "No Review Flag",
+        "icon": "🟢",
+        "color": "success",
+        "meaning": (
+            "The model did not produce a quality-risk score "
+            "high enough to trigger this project's review threshold."
         ),
         "action": (
-            "Continue the normal image-quality workflow. "
-            "The AI result does not replace professional "
-            "assessment of the examination."
+            "Continue the normal image-quality assessment. "
+            "The AI result does not replace the technologist's "
+            "visual and clinical judgement."
+        ),
+        "next": (
+            "No additional action is suggested by the model. "
+            "Follow the usual departmental workflow."
         ),
     }
 
+
+# ============================================================
+# SAVE RESULT
+# ============================================================
 
 def add_result(
     name,
     arr,
     gradcam,
     score,
-    metadata,
+    metadata
 ):
 
-    names = [
+    existing = [
         r["name"]
         for r in st.session_state.results
     ]
 
-    if name not in names:
+    if name not in existing:
 
         st.session_state.results.append(
             {
@@ -950,7 +793,7 @@ if st.session_state.page == "Home":
         <div class="hero">
 
             <div class="hero-kicker">
-                MEDICAL IMAGING TECHNOLOGY × ARTIFICIAL INTELLIGENCE
+                MEDICAL IMAGING TECHNOLOGY × AI
             </div>
 
             <h1>
@@ -958,10 +801,10 @@ if st.session_state.page == "Home":
             </h1>
 
             <p>
-                An AI-assisted research prototype exploring how
-                image-quality assessment could support CT dose-
-                optimization workflows without replacing
-                professional judgment.
+                An AI-assisted research prototype that flags CT images
+                showing patterns associated with reduced image quality,
+                helping the technologist decide which images deserve
+                a closer review.
             </p>
 
         </div>
@@ -970,45 +813,29 @@ if st.session_state.page == "Home":
     )
 
     left, right = st.columns(
-        [1.45, 1],
-        gap="large",
+        [1.5, 1],
+        gap="large"
     )
 
     with left:
 
-        st.markdown(
-            '<div class="eyebrow">THE QUESTION</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "### What happens when CT dose goes down?"
-        )
+        st.markdown("### The idea")
 
         st.write(
             """
-            Reducing radiation exposure can benefit patient safety,
-            but reducing dose can also increase image noise and
-            affect image quality.
-
-            This project explores a simple question:
-
-            **Can AI provide an additional signal when an image
-            begins to resemble a lower-quality pattern?**
+            When CT radiation dose is reduced, image noise can increase.
+            The important question is not simply whether an image looks noisy,
+            but whether the image quality may have crossed a level that
+            deserves another look.
             """
         )
 
         st.markdown(
             """
-            <div class="research-box">
-
-            <b>This prototype does not decide whether a scan is
-            clinically acceptable.</b>
-
-            It produces a model-generated quality-risk signal that
-            can be considered alongside normal professional
-            image-quality assessment.
-
+            <div class="why-box">
+            <b>What this prototype does:</b>
+            It provides an additional AI-based review signal.
+            The final judgement remains with the imaging professional.
             </div>
             """,
             unsafe_allow_html=True,
@@ -1017,104 +844,32 @@ if st.session_state.page == "Home":
         st.write("")
 
         if st.button(
-            "🔬 Try the CT Analyzer",
+            "Start CT Analysis →",
             type="primary",
             use_container_width=True,
         ):
-
-            st.session_state.analyze_mode = None
             navigate("Analyze")
 
     with right:
 
         st.markdown(
-            '<div class="eyebrow">IN SIMPLE TERMS</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "### What does the tool actually do?"
-        )
-
-        st.markdown(
             """
-            **1. 🩻 Takes a CT image**  
-            DICOM, PNG or JPG can be analyzed.
+            <div class="simple-card">
 
-            **2. 🧠 Runs the AI model**  
-            A VGG16-based model generates a quality-risk score.
-
-            **3. 🚩 Checks the project threshold**  
-            A score ≥ 0.25 creates a review signal.
-
-            **4. 👩‍⚕️ Supports human review**  
-            The technologist still assesses the actual image.
-            """
-        )
-
-    st.write("")
-
-    st.markdown("### Why could this be useful?")
-
-    a, b, c = st.columns(3)
-
-    with a:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            🎯 Consistency
+            <div class="eyebrow">
+            WORKFLOW
             </div>
 
-            <div class="card-text">
-            Human image-quality judgments can vary with experience,
-            workload and attention. A model can apply the same
-            computational criterion consistently.
-            </div>
+            <h3>
+            Image → AI score → Review
+            </h3>
 
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with b:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            📊 Scale
-            </div>
-
-            <div class="card-text">
-            A CT examination may contain hundreds of images.
-            Automated screening could help identify cases that
-            deserve closer review.
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with c:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            🔎 Subtle cases
-            </div>
-
-            <div class="card-text">
-            The longer-term research goal is not obvious noise.
-            Future validation should examine smaller and more
-            realistic dose-related changes in image quality.
-            </div>
+            <p class="small-info">
+            1. Upload a CT image<br>
+            2. Model produces a quality-risk score<br>
+            3. Review flag appears if score ≥ 0.25<br>
+            4. Technologist makes the final assessment
+            </p>
 
             </div>
             """,
@@ -1123,282 +878,56 @@ if st.session_state.page == "Home":
 
     st.write("")
 
-    st.markdown("### One important limitation")
-
-    st.markdown(
-        """
-        <div class="limitation-box">
-
-        <b>Why can the demo cases look obviously noisy?</b>
-
-        The CT data used for this proof-of-concept contains paired
-        full-dose and low-dose images with relatively strong
-        differences in image noise. That makes the distinction
-        easier for a first-stage research experiment.
-
-        <br><br>
-
-        In routine clinical practice, dose reductions can be much
-        more subtle. The important future question is whether this
-        approach remains useful when image-quality differences are
-        difficult to recognize visually.
-
-        <br><br>
-
-        <b>This is a limitation, not a hidden result.</b>
-
-        The prototype demonstrates that the model can learn a
-        quality-related distinction in the study data. It does
-        <b>not</b> establish reliable performance across different
-        patients, scanners, institutions or realistic clinical
-        dose-reduction settings.
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
-
-    st.markdown(
-        "### Where could this fit in a real workflow?"
-    )
-
-    st.write(
-        """
-        The most realistic future role would be as a decision-support
-        or quality-control tool rather than an automatic rescan system.
-
-        Repeated quality flags could potentially contribute to
-        protocol-level quality audits. An individual flagged
-        examination could also receive additional human review.
-
-        A repeat scan would remain a professional clinical decision
-        based on whether the examination is actually diagnostically
-        inadequate — not simply because an AI score crossed a threshold.
-        """
-    )
-
-    st.warning(
-        """
-        **Research prototype only:** This application has not been
-        clinically validated. Do not use its output to diagnose
-        patients, accept/reject clinical examinations, automatically
-        repeat scans, or change CT radiation-dose protocols.
-        """
+    st.caption(
+        "Research prototype • Not clinically validated • "
+        "Not for diagnosis or automatic CT protocol changes"
     )
 
 
 # ============================================================
-# ANALYZE
+# ANALYZE LANDING
 # ============================================================
 
 elif st.session_state.page == "Analyze":
 
-    # ========================================================
-    # CHOOSE MODE
-    # ========================================================
+    st.markdown(
+        '<div class="eyebrow">CT ANALYSIS</div>',
+        unsafe_allow_html=True,
+    )
 
-    if st.session_state.analyze_mode is None:
+    st.title("Choose how to begin")
 
-        st.markdown(
-            '<div class="eyebrow">CT ANALYSIS</div>',
-            unsafe_allow_html=True,
-        )
+    st.caption(
+        "Upload your own CT image or explore a prepared demonstration case."
+    )
 
-        st.title("Analyze a CT Image")
+    st.write("")
 
-        st.write(
-            """
-            Explore the prototype using your own CT image or
-            start with one of the built-in demonstration cases.
-            """
-        )
+    left, right = st.columns(
+        2,
+        gap="large"
+    )
 
-        st.markdown(
-            "### How would you like to begin?"
-        )
+    # ----------------------------------------
+    # UPLOAD OPTION
+    # ----------------------------------------
 
-        st.caption(
-            "Choose an option below to continue."
-        )
-
-        upload_col, demo_col = st.columns(
-            2,
-            gap="large",
-        )
-
-        # ----------------------------------------------------
-        # UPLOAD CARD
-        # ----------------------------------------------------
-
-        with upload_col:
-
-            st.markdown(
-                """
-                <div class="option-card">
-
-                    <div class="option-icon">
-                    📤
-                    </div>
-
-                    <div class="option-title">
-                    Upload Your CT
-                    </div>
-
-                    <div class="option-text">
-
-                    Analyze your own CT image using the
-                    AI-assisted quality-risk model.
-
-                    <br><br>
-
-                    <b>Supported:</b>
-                    DICOM, PNG, JPG and JPEG
-
-                    <br><br>
-
-                    DICOM is preferred because it may contain
-                    useful acquisition information.
-
-                    </div>
-
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.write("")
-
-            if st.button(
-                "Upload a CT image →",
-                type="primary",
-                use_container_width=True,
-                disabled=not MODEL_READY,
-            ):
-
-                st.session_state.analyze_mode = "upload"
-                st.rerun()
-
-        # ----------------------------------------------------
-        # DEMO CARD
-        # ----------------------------------------------------
-
-        with demo_col:
-
-            st.markdown(
-                """
-                <div class="option-card">
-
-                    <div class="option-icon">
-                    🧪
-                    </div>
-
-                    <div class="option-title">
-                    Try Demo Cases
-                    </div>
-
-                    <div class="option-text">
-
-                    Explore prepared CT examples to understand
-                    how the model, quality-risk score and Grad-CAM
-                    visualization work.
-
-                    <br><br>
-
-                    <b>Best for:</b>
-                    first-time users, demonstrations and learning.
-
-                    <br><br>
-
-                    No upload is required.
-
-                    </div>
-
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.write("")
-
-            if st.button(
-                "Explore demo cases →",
-                use_container_width=True,
-                disabled=not MODEL_READY,
-            ):
-
-                st.session_state.analyze_mode = "demo"
-                st.rerun()
-
-        st.write("")
+    with left:
 
         st.markdown(
             """
-            <div class="explain">
+            <div class="choice-card">
 
-            <b>Not sure where to start?</b>
+            <div class="choice-icon">📤</div>
 
-            Try the <b>Demo Cases</b> first. They let you explore
-            the complete workflow without uploading your own CT image.
-
+            <div class="choice-title">
+            Upload your CT
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    # ========================================================
-    # UPLOAD MODE
-    # ========================================================
-
-    elif st.session_state.analyze_mode == "upload":
-
-        top_left, top_right = st.columns(
-            [3, 1]
-        )
-
-        with top_left:
-
-            st.markdown(
-                '<div class="eyebrow">YOUR CT IMAGE</div>',
-                unsafe_allow_html=True,
-            )
-
-            st.title("Upload Your CT")
-
-        with top_right:
-
-            if st.button(
-                "← Back",
-                use_container_width=True,
-            ):
-
-                st.session_state.analyze_mode = None
-                st.rerun()
-
-        st.write(
-            """
-            Upload one or more CT images for analysis.
-            The model will generate a quality-risk signal for each image.
-            """
-        )
-
-        st.markdown(
-            """
-            <div class="explain">
-
-            <b>Recommended: DICOM (.dcm)</b>
-
-            <br>
-
-            DICOM may contain both the CT image and acquisition
-            information such as tube voltage, tube current and
-            slice thickness.
-
-            <br><br>
-
-            PNG / JPG / JPEG are also supported for image-based
-            testing.
+            <div class="choice-text">
+            Analyze a DICOM, PNG or JPG image using
+            the AI model.
+            </div>
 
             </div>
             """,
@@ -1406,23 +935,30 @@ elif st.session_state.page == "Analyze":
         )
 
         st.write("")
+
+        if not MODEL_READY:
+
+            st.error(
+                "The AI model could not be loaded."
+            )
+
+            st.caption(
+                MODEL_ERROR
+            )
 
         files = st.file_uploader(
-            "Choose CT image(s)",
+            "Choose CT image",
             type=[
                 "dcm",
                 "png",
                 "jpg",
-                "jpeg",
+                "jpeg"
             ],
             accept_multiple_files=True,
-            help=(
-                "The Streamlit server configuration controls "
-                "the maximum upload size."
-            ),
+            disabled=not MODEL_READY,
         )
 
-        if files:
+        if files and MODEL_READY:
 
             for file in files:
 
@@ -1440,10 +976,8 @@ elif st.session_state.page == "Analyze":
 
                         if file.name.lower().endswith(".dcm"):
 
-                            image, metadata = (
-                                dicom_to_image(
-                                    file.read()
-                                )
+                            image, metadata = dicom_to_image(
+                                file.read()
                             )
 
                         else:
@@ -1468,7 +1002,7 @@ elif st.session_state.page == "Analyze":
                     )
 
                     st.success(
-                        f"{file.name} analyzed successfully."
+                        f"{file.name} analyzed."
                     )
 
                 except Exception as exc:
@@ -1481,164 +1015,174 @@ elif st.session_state.page == "Analyze":
                         str(exc)
                     )
 
-            st.write("")
+            if files:
 
-            if st.button(
-                "View analysis result →",
-                type="primary",
-            ):
+                if st.button(
+                    "View Result →",
+                    type="primary",
+                    use_container_width=True,
+                ):
 
-                navigate("Results")
+                    navigate("Results")
 
-    # ========================================================
-    # DEMO CASES MODE
-    # ========================================================
 
-    elif st.session_state.analyze_mode == "demo":
+    # ----------------------------------------
+    # DEMO OPTION
+    # ----------------------------------------
 
-        top_left, top_right = st.columns(
-            [3, 1]
-        )
+    with right:
 
-        with top_left:
-
-            st.markdown(
-                '<div class="eyebrow">'
-                'DEMONSTRATION LIBRARY'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-
-            st.title("Explore Demo Cases")
-
-        with top_right:
-
-            if st.button(
-                "← Back",
-                use_container_width=True,
-            ):
-
-                st.session_state.analyze_mode = None
-                st.rerun()
-
-        st.write(
+        st.markdown(
             """
-            Explore prepared CT examples and see how the model
-            generates and explains its quality-risk signal.
-            """
-        )
+            <div class="choice-card">
 
-        st.info(
-            """
-            **Demonstration only:** These cases are provided to
-            demonstrate the application workflow. They are not
-            clinical validation cases.
-            """
+            <div class="choice-icon">🧪</div>
+
+            <div class="choice-title">
+            Try Demo Cases
+            </div>
+
+            <div class="choice-text">
+            Explore prepared CT cases without uploading
+            your own image.
+            </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         st.write("")
 
-        demos = [
-            (
-                "Demo Case 1",
-                "sample_acceptable_1.png",
-                "Demonstration image",
-            ),
-            (
-                "Demo Case 2",
-                "sample_acceptable_2.png",
-                "Demonstration image",
-            ),
-            (
-                "Demo Case 3",
-                "sample_flagged_1.png",
-                "Demonstration image",
-            ),
-            (
-                "Demo Case 4",
-                "sample_flagged_2.png",
-                "Demonstration image",
-            ),
-        ]
+        if st.button(
+            "Open Demo Cases →",
+            use_container_width=True,
+        ):
 
-        cols = st.columns(
-            2,
-            gap="large",
+            navigate("Demo Cases")
+
+    st.write("")
+    st.divider()
+
+    with st.expander("Why does this matter?"):
+
+        st.write(
+            """
+            The model was developed as a proof-of-concept using
+            paired full-dose and low-dose CT data. The differences
+            in some study images can be visually obvious.
+
+            That is a limitation, not the final goal.
+
+            In real-world dose optimization, image-quality changes
+            may be much more subtle. Future validation should therefore
+            test the system on realistic dose reductions, different
+            scanners, institutions and patients.
+            """
         )
 
-        for i, (
-            title,
-            filename,
-            description,
-        ) in enumerate(demos):
 
-            path = os.path.join(
-                "sample_images",
-                filename,
-            )
+# ============================================================
+# DEMO CASES
+# ============================================================
 
-            with cols[i % 2]:
+elif st.session_state.page == "Demo Cases":
 
-                if os.path.exists(path):
+    st.markdown(
+        '<div class="eyebrow">DEMONSTRATION</div>',
+        unsafe_allow_html=True,
+    )
 
-                    demo_image = (
-                        Image.open(path)
-                        .convert("RGB")
-                    )
+    st.title("Demo Cases")
 
-                    st.markdown(
-                        '<div class="card">',
-                        unsafe_allow_html=True,
-                    )
+    st.caption(
+        "These cases are included to demonstrate the workflow."
+    )
 
-                    st.image(
-                        demo_image,
-                        use_container_width=True,
-                    )
+    if st.button("← Back to Analyze"):
 
-                    st.markdown(
-                        f"### {title}"
-                    )
+        navigate("Analyze")
 
-                    st.caption(
-                        description
-                    )
+    st.write("")
 
-                    st.markdown(
-                        "</div>",
-                        unsafe_allow_html=True,
-                    )
+    demo_folder = "sample_images"
 
-                    if st.button(
-                        f"Analyze {title} →",
-                        key=f"demo_{i}",
-                        type="primary",
-                        use_container_width=True,
+    demos = [
+        (
+            "Demo Case 1",
+            "sample_acceptable_1.png"
+        ),
+        (
+            "Demo Case 2",
+            "sample_acceptable_2.png"
+        ),
+        (
+            "Demo Case 3",
+            "sample_flagged_1.png"
+        ),
+        (
+            "Demo Case 4",
+            "sample_flagged_2.png"
+        ),
+    ]
+
+    cols = st.columns(4)
+
+    for i, (
+        title,
+        filename
+    ) in enumerate(demos):
+
+        path = os.path.join(
+            demo_folder,
+            filename
+        )
+
+        with cols[i]:
+
+            if os.path.exists(path):
+
+                demo_image = (
+                    Image.open(path)
+                    .convert("RGB")
+                )
+
+                st.image(
+                    demo_image,
+                    caption=title,
+                    use_container_width=True,
+                )
+
+                if st.button(
+                    "Analyze",
+                    key=f"demo_{i}",
+                    use_container_width=True,
+                    disabled=not MODEL_READY,
+                ):
+
+                    with st.spinner(
+                        "Analyzing case..."
                     ):
 
-                        with st.spinner(
-                            "Analyzing demonstration case..."
-                        ):
-
-                            arr, gradcam, score = analyze(
-                                demo_image
-                            )
-
-                        add_result(
-                            title,
-                            arr,
-                            gradcam,
-                            score,
-                            {},
+                        arr, gradcam, score = analyze(
+                            demo_image
                         )
 
-                        navigate("Results")
-
-                else:
-
-                    st.warning(
-                        f"{title} is not available."
+                    add_result(
+                        title,
+                        arr,
+                        gradcam,
+                        score,
+                        {},
                     )
+
+                    navigate("Results")
+
+            else:
+
+                st.info(
+                    f"{title} unavailable."
+                )
 
 
 # ============================================================
@@ -1648,23 +1192,21 @@ elif st.session_state.page == "Analyze":
 elif st.session_state.page == "Results":
 
     st.markdown(
-        '<div class="eyebrow">ANALYSIS RESULT</div>',
+        '<div class="eyebrow">AI ASSESSMENT</div>',
         unsafe_allow_html=True,
     )
 
-    st.title(
-        "What does the model suggest?"
-    )
+    st.title("Result")
 
     if not st.session_state.results:
 
         st.info(
-            "No images have been analyzed yet."
+            "No CT image has been analyzed yet."
         )
 
         if st.button(
-            "Go to CT Analysis",
-            type="primary",
+            "Start Analysis →",
+            type="primary"
         ):
 
             navigate("Analyze")
@@ -1677,15 +1219,15 @@ elif st.session_state.page == "Results":
         ]
 
         selected = st.selectbox(
-            "Select an analyzed image",
+            "Analyzed image",
             names,
-            index=max(
-                0,
+            index=(
                 names.index(
                     st.session_state.selected_result
                 )
-                if st.session_state.selected_result in names
-                else 0,
+                if st.session_state.selected_result
+                in names
+                else 0
             ),
         )
 
@@ -1701,61 +1243,52 @@ elif st.session_state.page == "Results":
             score
         )
 
-        # ----------------------------------------------------
-        # RESULT CARD
-        # ----------------------------------------------------
+        # ------------------------------------
+        # TOP RESULT
+        # ------------------------------------
 
-        top1, top2 = st.columns(
-            [1.05, 1.95],
-            gap="large",
+        left, right = st.columns(
+            [1, 1.6],
+            gap="large"
         )
 
-        with top1:
+        with left:
 
             st.markdown(
-                '<div class="card">',
+                """
+                <div class="score-box">
+                """,
                 unsafe_allow_html=True,
             )
 
             st.markdown(
-                '<div class="eyebrow">'
-                'MODEL ASSESSMENT'
-                '</div>',
+                '<div class="eyebrow">MODEL OUTPUT</div>',
                 unsafe_allow_html=True,
             )
 
             st.markdown(
-                f"## {info['emoji']} {info['level']}"
+                f"## {info['icon']} {info['status']}"
             )
 
             st.markdown(
-                '<div class="score-label">'
-                'Quality-risk score'
-                '</div>',
+                '<div class="score-label">Quality-risk score</div>',
                 unsafe_allow_html=True,
             )
 
             st.markdown(
-                f'<div class="score">'
-                f'{score:.3f}'
-                f'</div>',
+                f'<div class="score">{score:.3f}</div>',
                 unsafe_allow_html=True,
             )
 
             st.progress(
                 min(
                     max(score, 0),
-                    1,
+                    1
                 )
             )
 
-            st.markdown(
-                f"**{info['status']}**"
-            )
-
             st.caption(
-                "Model output on a 0–1 scale; "
-                "not a probability."
+                f"Review threshold: {THRESHOLD:.2f}"
             )
 
             st.markdown(
@@ -1763,246 +1296,170 @@ elif st.session_state.page == "Results":
                 unsafe_allow_html=True,
             )
 
-        with top2:
+        with right:
 
-            st.markdown(
-                "### What does this mean?"
+            st.markdown("### What does the result mean?")
+
+            st.write(
+                info["meaning"]
             )
+
+            # --------------------------------
+            # PRACTICAL ACTION
+            # --------------------------------
 
             st.markdown(
                 f"""
-                <div class="explain">
+                <div class="action-box">
 
-                {info['summary']}
+                <div class="action-title">
+                👨‍⚕️ What should the technologist do?
+                </div>
 
-                <br><br>
-
-                A higher score means the image more strongly
-                resembles the pattern associated with the
-                project's flagged group.
-
-                <br><br>
-
-                <b>This score does NOT establish:</b>
-
-                <br>
-                • whether the image is diagnostically acceptable
-                <br>
-                • whether a patient has a disease
-                <br>
-                • whether the scan should be repeated
-                <br>
-                • whether CT radiation dose should be changed
+                <div class="action-text">
+                {info["action"]}
+                </div>
 
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-        # ----------------------------------------------------
-        # TECHNOLOGIST GUIDANCE
-        # ----------------------------------------------------
-
-        st.write("")
-
-        st.markdown(
-            '<div class="eyebrow">'
-            'TECHNOLOGIST GUIDANCE'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "### So, what should the technologist do?"
-        )
-
-        st.markdown(
-            f"""
-            <div class="action-box">
-
-            <div class="action-title">
-            👩‍⚕️ Recommended next step
-            </div>
-
-            <div class="action-text">
-
-            {info['action']}
-
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.write("")
-
-        check1, check2 = st.columns(
-            2,
-            gap="large",
-        )
-
-        with check1:
-
             st.markdown(
-                """
-                **🔎 What to review**
+                f"""
+                <div class="action-box">
 
-                - Image noise
-                - Motion
-                - Artifacts
-                - Required anatomical coverage
-                - Visibility of relevant structures
-                - Suitability for the intended examination
+                <div class="action-title">
+                ➜ What happens next?
+                </div>
+
+                <div class="action-text">
+                {info["next"]}
+                </div>
+
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.write("")
+
+        # ------------------------------------
+        # IMPORTANT CLARIFICATION
+        # ------------------------------------
+
+        if score >= THRESHOLD:
+
+            st.warning(
+                """
+                **Review flag ≠ automatic rescan.**
+
+                The AI flag means the image deserves closer
+                human assessment. A repeat scan should only be
+                considered when clinically justified and according
+                to the department's established protocol.
                 """
             )
 
-        with check2:
+        else:
 
-            st.markdown(
+            st.success(
                 """
-                **🚫 What NOT to do from the AI score alone**
+                **No AI review flag.**
 
-                - Do not automatically repeat the scan
-                - Do not automatically increase radiation dose
-                - Do not reject an examination solely from the score
-                - Do not treat the score as a diagnosis
+                This does not prove that the image is clinically
+                acceptable. Continue the normal image-quality check.
                 """
             )
 
-        # ----------------------------------------------------
-        # GRAD-CAM
-        # ----------------------------------------------------
+        # ------------------------------------
+        # IMAGES
+        # ------------------------------------
 
-        st.write("")
-
-        st.markdown(
-            '<div class="eyebrow">'
-            'MODEL INTERPRETABILITY'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "### 👁️ Where did the model look?"
-        )
+        st.markdown("### Image & model explanation")
 
         st.caption(
-            """
-            Grad-CAM provides a visual explanation of regions
-            that contributed to the model prediction. It is an
-            interpretability aid — not a diagnostic heatmap.
-            """
+            "Grad-CAM highlights areas that contributed more strongly "
+            "to the model's prediction. It does not identify disease."
         )
 
         c1, c2 = st.columns(
             2,
-            gap="large",
+            gap="large"
         )
 
         with c1:
 
             st.image(
-                np.clip(
-                    result["image"],
-                    0,
-                    255,
-                ).astype(
-                    np.uint8
-                ),
-                caption="Original CT image",
+                result["image"],
+                caption="CT image",
                 use_container_width=True,
             )
 
         with c2:
 
             st.image(
-                np.clip(
-                    result["gradcam"],
-                    0,
-                    255,
-                ).astype(
-                    np.uint8
-                ),
-                caption="Grad-CAM visualization",
+                result["gradcam"],
+                caption="Grad-CAM — model attention",
                 use_container_width=True,
             )
 
-        st.info(
-            """
-            **Important:** A highlighted region does not mean that
-            the region is abnormal, contains pathology, or is
-            objectively responsible for poor image quality.
-            Grad-CAM only provides an approximate view of model attention.
-            """
-        )
-
-        # ----------------------------------------------------
-        # DICOM INFORMATION
-        # ----------------------------------------------------
+        # ------------------------------------
+        # DICOM
+        # ------------------------------------
 
         if result["metadata"]:
 
-            st.markdown(
-                "### 📋 DICOM acquisition information"
-            )
+            with st.expander(
+                "View available DICOM information"
+            ):
 
-            st.caption(
-                """
-                These values come from DICOM metadata when they
-                are present in the uploaded file.
-                """
-            )
+                metadata_df = pd.DataFrame(
+                    list(
+                        result["metadata"].items()
+                    ),
+                    columns=[
+                        "Parameter",
+                        "Value"
+                    ],
+                )
 
-            metadata_df = pd.DataFrame(
-                list(
-                    result["metadata"].items()
-                ),
-                columns=[
-                    "Parameter",
-                    "Value",
-                ],
-            )
+                st.dataframe(
+                    metadata_df,
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-            st.dataframe(
-                metadata_df,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-        # ----------------------------------------------------
-        # THRESHOLD
-        # ----------------------------------------------------
+        # ------------------------------------
+        # SCORE EXPLANATION
+        # ------------------------------------
 
         with st.expander(
-            "Why does the project use 0.25?"
+            "How should I understand the score?"
         ):
 
             st.write(
-                """
-                A threshold is a decision point used to convert
-                a continuous model score into a review signal.
+                f"""
+                The score ranges from 0 to 1.
 
-                In this research prototype, 0.25 was selected as
-                the project-specific review threshold.
+                In this prototype, **0.25** is the selected
+                review threshold.
 
-                It is not a universal definition of acceptable
-                CT image quality.
+                **Below 0.25:** no automatic review flag.
 
-                A clinically useful threshold would require
-                extensive validation on independent patients,
-                scanners, institutions and clinically meaningful
-                image-quality assessments.
+                **0.25 or above:** review signal.
+
+                The threshold is specific to this research
+                project. It is not a universal clinical cutoff.
                 """
             )
 
         st.warning(
             """
-            **Clinical safety:** This prototype is not clinically
-            validated. Its output should be treated only as a
-            research/educational signal. Do not use it alone to
-            diagnose disease, repeat examinations, reject clinical
-            scans or modify radiation-dose protocols.
+            **Research prototype only.**
+
+            The AI output should not be used alone to diagnose,
+            reject a clinical scan, or change radiation-dose settings.
             """
         )
 
@@ -2014,330 +1471,99 @@ elif st.session_state.page == "Results":
 elif st.session_state.page == "Learn":
 
     st.markdown(
-        '<div class="eyebrow">PROJECT GUIDE</div>',
+        '<div class="eyebrow">QUICK GUIDE</div>',
         unsafe_allow_html=True,
     )
 
-    st.title(
-        "Understand the Technology"
-    )
+    st.title("How the AI works")
 
-    st.write(
-        """
-        The main concepts behind the prototype are explained here
-        in simple language.
-        """
+    st.caption(
+        "A few important terms, explained simply."
     )
 
     topics = [
 
         (
             "🧠 VGG16",
-            """
-            VGG16 is a deep-learning model originally developed
-            for image recognition.
-
-            This project uses transfer learning, where visual
-            features learned previously are adapted to the
-            CT image-quality task.
-
-            In simple terms, the model learns visual patterns
-            that help distinguish between the groups represented
-            in the training data.
-            """
+            "The deep-learning image model used in this project. "
+            "Transfer learning adapts an already-trained visual model "
+            "to the CT image-quality task."
         ),
 
         (
             "🔄 Test-Time Augmentation",
-            """
-            The model does not rely on only one presentation
-            of an image.
-
-            Five views are used:
-
-            • original image
-            • horizontally flipped image
-            • small rotation
-            • opposite small rotation
-            • small crop/zoom
-
-            The predictions are averaged.
-
-            The purpose is to reduce sensitivity to small changes
-            in image presentation.
-            """
+            "The same CT image is tested in five slightly different "
+            "versions and the results are averaged. This helps reduce "
+            "sensitivity to small changes in image presentation."
         ),
 
         (
             "👁️ Grad-CAM",
-            """
-            Grad-CAM is an interpretability technique that helps
-            visualize regions that contributed to a model prediction.
-
-            Think of it as asking:
-
-            "Which parts of this image were influential for the model?"
-
-            It does not prove that the highlighted region is abnormal
-            or clinically important.
-            """
+            "A visualization method showing which parts of the image "
+            "contributed more strongly to the model's prediction. "
+            "It should be treated as an explanation aid, not a diagnosis."
         ),
 
         (
             "🩻 DICOM",
-            """
-            DICOM is a standard format used in medical imaging.
-
-            A DICOM file can contain the image together with
-            acquisition information such as tube voltage,
-            tube current, exposure and slice thickness.
-            """
+            "The standard medical-imaging format. It can contain both "
+            "the CT image and acquisition information such as tube voltage, "
+            "tube current and slice thickness."
         ),
 
         (
             "📈 Quality-risk score",
-            """
-            The model produces a numerical output between 0 and 1.
-
-            A higher value means the image more strongly resembles
-            the pattern associated with the project's flagged group.
-
-            Important:
-
-            This is NOT a probability that the image is poor quality.
-
-            For example, a score of 0.60 does not mean
-            "60% poor quality."
-            """
+            "A numerical model output. A higher value means the image "
+            "more strongly resembles the pattern the model was trained "
+            "to flag."
         ),
 
         (
-            "🎯 The 0.25 threshold",
-            """
-            The project uses 0.25 as its review threshold.
-
-            Below 0.25:
-            No automatic review flag.
-
-            0.25 or above:
-            Review signal.
-
-            This threshold belongs to this research prototype.
-            It is not a universal clinical rule.
-            """
+            "🎯 Threshold",
+            "The point used to convert the model score into a review "
+            "signal. This project uses 0.25."
         ),
 
         (
-            "📊 Recall and precision",
-            """
-            Recall asks:
-
-            "Of the cases belonging to the flagged group,
-            how many did the model identify?"
-
-            Precision asks:
-
-            "Of the cases flagged by the model,
-            how many belonged to the flagged group?"
-
-            Reported project evaluation:
-
-            Recall: 85%
-            Precision: 54%
-            F1-score: 0.66
-            ROC-AUC: 0.839
-            Full-dose false-positive rate: 3.3%
-
-            These results describe this project's evaluation.
-            They do not establish clinical effectiveness.
-            """
+            "📊 Recall / Precision",
+            "Recall describes how many flagged cases the model detected. "
+            "Precision describes how many of the cases it flagged were "
+            "actually in the flagged group."
         ),
+
     ]
 
     for title, explanation in topics:
 
         with st.expander(title):
-            st.write(explanation)
+
+            st.write(
+                explanation
+            )
 
     st.divider()
 
-    # ========================================================
-    # WHY AI?
-    # ========================================================
-
-    st.markdown(
-        '<div class="eyebrow">WHY AI?</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        "### If the noise is visible, why use AI?"
-    )
+    st.markdown("### Project limitations")
 
     st.write(
         """
-        This is an important limitation and a fair question.
+        This prototype was evaluated using patient-level held-out
+        CT data. The quality labels were based on a noise-related
+        image-quality proxy rather than radiologist-confirmed
+        diagnostic ground truth.
 
-        Some of the study/demo images contain relatively obvious
-        differences in noise. A human can identify many of these
-        cases visually.
+        The dataset also contains some strongly different
+        full-dose and low-dose examples. Real clinical dose
+        reductions can be more subtle.
 
-        That does not mean the AI has already solved the harder
-        clinical problem.
-        """
-    )
-
-    reason1, reason2, reason3 = st.columns(3)
-
-    with reason1:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            01 — Consistency
-            </div>
-
-            <div class="card-text">
-            An automated model can apply the same learned criterion
-            repeatedly instead of relying entirely on subjective
-            visual judgment.
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with reason2:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            02 — Scale
-            </div>
-
-            <div class="card-text">
-            A complete CT examination can contain hundreds of images.
-            Automated screening could help prioritize examinations
-            that deserve closer attention.
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with reason3:
-
-        st.markdown(
-            """
-            <div class="card">
-
-            <div class="card-title">
-            03 — Future subtle cases
-            </div>
-
-            <div class="card-text">
-            The more important future test is whether the approach
-            can identify smaller, less obvious quality changes that
-            are harder to judge consistently by visual inspection.
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.write("")
-
-    # ========================================================
-    # LIMITATION
-    # ========================================================
-
-    st.markdown(
-        '<div class="eyebrow">RESEARCH LIMITATION</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="limitation-box">
-
-        <b>The current experiment should be interpreted as
-        proof-of-concept.</b>
-
-        <br><br>
-
-        The training/evaluation data contain paired full-dose
-        and low-dose CT images with relatively clear differences
-        in image noise. This is useful for testing whether the
-        model can learn the intended distinction, but it does
-        not recreate every real-world CT dose-optimization scenario.
-
-        <br><br>
-
-        In real clinical environments, useful dose reduction may
-        produce much more subtle changes in image noise and
-        diagnostic quality.
-
-        <br><br>
-
-        Therefore, future work should evaluate the approach using
-        larger and independent datasets, more realistic dose
-        variations, different scanners and institutions, and
-        clinically meaningful image-quality assessments.
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.divider()
-
-    # ========================================================
-    # FUTURE WORKFLOW
-    # ========================================================
-
-    st.markdown(
-        '<div class="eyebrow">FUTURE WORKFLOW</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        "### Where could this tool fit in practice?"
-    )
-
-    st.write(
-        """
-        The intended concept is not:
-
-        **AI flags image → automatically repeat scan**
-
-        A more realistic future workflow would be:
-
-        **CT examination → AI screening signal → human
-        image-quality review → clinical/QC decision**
-
-        At a broader level, repeated flags could potentially
-        be studied during protocol-level quality audits.
-
-        For example, if a particular dose-reduction protocol
-        repeatedly produces images that receive quality-risk
-        flags, that pattern could become a reason for further
-        protocol evaluation.
-
-        Any clinical action would remain the responsibility of
-        appropriately qualified professionals and institutional
-        protocols.
+        Therefore, future validation should include larger datasets,
+        more realistic dose variations, different scanners and
+        independent clinical assessment.
         """
     )
 
     st.warning(
-        "Research prototype only — not for clinical use."
+        "Educational/research prototype — not for clinical use."
     )
 
 
@@ -2349,6 +1575,5 @@ st.divider()
 
 st.caption(
     "CT Image Quality Flagger • Zainab Fatima • "
-    "Medical Imaging Technology • "
-    "Educational/research prototype only"
+    "Medical Imaging Technology • Research prototype"
 )
