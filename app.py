@@ -1,27 +1,25 @@
-import streamlit as st
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications.vgg16 import preprocess_input
-from PIL import Image
-import pydicom
-import cv2
-import pandas as pd
-import io
 import os
+import io
+import cv2
+import numpy as np
+import pandas as pd
+import pydicom
+import streamlit as st
+import tensorflow as tf
+from PIL import Image
 from huggingface_hub import hf_hub_download
-
+from tensorflow.keras.applications.vgg16 import preprocess_input
 
 # ============================================================
-# PAGE CONFIG
+# PAGE
 # ============================================================
 
 st.set_page_config(
     page_title="CT Image Quality Flagger",
     page_icon="🩻",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
-
 
 # ============================================================
 # PROJECT SETTINGS
@@ -31,14 +29,11 @@ HF_REPO = "zainabfatima9/ct-image-quality-flagger"
 MODEL_FILENAME = "ct_quality_model_21patients_v2.h5"
 
 IMAGE_SIZE = (224, 224)
-
 THRESHOLD = 0.25
-
 GRADCAM_LAYER = "block4_conv3"
 
 WINDOW_CENTER = 40
 WINDOW_WIDTH = 400
-
 
 # ============================================================
 # SESSION STATE
@@ -50,406 +45,285 @@ if "page" not in st.session_state:
 if "results" not in st.session_state:
     st.session_state.results = []
 
+if "selected_result" not in st.session_state:
+    st.session_state.selected_result = None
 
-def go_to(page):
+
+def navigate(page):
     st.session_state.page = page
     st.rerun()
 
 
 # ============================================================
-# CUSTOM CSS
+# PROFESSIONAL UI
+# No raw HTML is used for visible interface text.
 # ============================================================
 
 st.markdown(
     """
     <style>
+    :root {
+        --navy: #102a43;
+        --blue: #247ba0;
+        --blue-light: #eaf5f9;
+        --ink: #172b4d;
+        --muted: #64748b;
+        --line: #dbe5ec;
+        --bg: #f7fafc;
+    }
 
-    /* ---------------- GLOBAL ---------------- */
+    .stApp {
+        background: #f7fafc;
+    }
 
     .block-container {
         max-width: 1180px;
-        padding-top: 1.2rem;
+        padding-top: 1.1rem;
         padding-bottom: 3rem;
     }
 
-    /* ---------------- TOP APP BAR ---------------- */
+    /* Hide Streamlit chrome */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
 
-    .app-title {
+    /* Top brand */
+    .brand-name {
         font-size: 1.25rem;
-        font-weight: 750;
-        color: #0f2540;
-        line-height: 1.2;
-        margin: 0;
+        font-weight: 800;
+        color: #102a43;
+        margin-bottom: 0;
     }
 
-    .app-subtitle {
-        font-size: 0.75rem;
+    .brand-subtitle {
         color: #64748b;
+        font-size: 0.78rem;
         margin-top: 0.15rem;
     }
 
-    /* ---------------- HERO ---------------- */
-
-    .hero-box {
-        background: linear-gradient(
-            135deg,
-            #0b2138 0%,
-            #174d73 55%,
-            #2b82a8 100%
-        );
-
+    /* Hero */
+    .hero {
+        background: linear-gradient(135deg, #0f2942 0%, #174e73 55%, #2b82a8 100%);
         border-radius: 24px;
-        padding: 3rem 3rem;
-        margin-top: 0.8rem;
-        margin-bottom: 1.5rem;
-
+        padding: 3.3rem 3.2rem;
         color: white;
-
-        box-shadow:
-            0 12px 30px rgba(15, 37, 64, 0.15);
+        margin: 0.8rem 0 1.6rem 0;
+        box-shadow: 0 16px 38px rgba(16,42,67,.15);
     }
 
-    .hero-tag {
-        font-size: 0.78rem;
-        font-weight: 650;
-        letter-spacing: 0.08em;
-        opacity: 0.85;
-        margin-bottom: 0.9rem;
-    }
-
-    .hero-title {
-        font-size: clamp(2rem, 5vw, 3.2rem);
-        font-weight: 800;
-        line-height: 1.08;
-        margin-bottom: 0.8rem;
-    }
-
-    .hero-description {
-        font-size: clamp(0.95rem, 2vw, 1.1rem);
-        line-height: 1.65;
-        max-width: 760px;
-        opacity: 0.93;
-    }
-
-    /* ---------------- CARDS ---------------- */
-
-    .info-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 1.35rem;
-        height: 100%;
-        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
-    }
-
-    .info-card-title {
-        font-size: 1.05rem;
+    .hero-kicker {
+        font-size: .74rem;
+        letter-spacing: .12em;
         font-weight: 700;
-        color: #0f2540;
-        margin-bottom: 0.5rem;
+        opacity: .82;
+        margin-bottom: 1rem;
     }
 
-    .info-card-text {
-        font-size: 0.92rem;
-        line-height: 1.6;
-        color: #475569;
-    }
-
-    /* ---------------- SIMPLE EXPLANATION ---------------- */
-
-    .simple-box {
-        background: #f1f8fb;
-        border-left: 4px solid #2a7ba8;
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        line-height: 1.65;
-        color: #334155;
-    }
-
-    .warning-box {
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
-        border-radius: 12px;
-        padding: 1rem 1.2rem;
-        line-height: 1.6;
-        color: #7c2d12;
-    }
-
-    .danger-box {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: 12px;
-        padding: 1rem 1.2rem;
-        line-height: 1.6;
-        color: #7f1d1d;
-    }
-
-    /* ---------------- RESULT ---------------- */
-
-    .score-number {
-        font-size: clamp(2.3rem, 6vw, 3.2rem);
+    .hero h1 {
+        font-size: clamp(2.1rem, 5vw, 3.45rem);
+        line-height: 1.05;
+        margin: 0 0 .85rem 0;
+        color: white;
         font-weight: 800;
-        color: #0f2540;
-        line-height: 1;
     }
 
-    .small-label {
-        color: #64748b;
-        font-size: 0.78rem;
+    .hero p {
+        max-width: 760px;
+        font-size: 1.03rem;
+        line-height: 1.65;
+        margin: 0;
+        color: rgba(255,255,255,.91);
+    }
+
+    /* Section cards */
+    .card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 1.35rem;
+        box-shadow: 0 4px 16px rgba(15,23,42,.035);
+        height: 100%;
+    }
+
+    .card-title {
+        color: #102a43;
+        font-weight: 750;
+        font-size: 1.03rem;
+        margin-bottom: .45rem;
+    }
+
+    .card-text {
+        color: #526174;
+        line-height: 1.62;
+        font-size: .92rem;
+    }
+
+    .eyebrow {
+        color: #247ba0;
+        font-size: .74rem;
+        font-weight: 800;
+        letter-spacing: .1em;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 600;
     }
 
-    /* ---------------- MOBILE ---------------- */
+    .score {
+        font-size: 3.25rem;
+        line-height: 1;
+        font-weight: 850;
+        color: #102a43;
+    }
 
+    .score-label {
+        color: #64748b;
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .explain {
+        background: #eef7fa;
+        border-left: 4px solid #247ba0;
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        color: #334e68;
+        line-height: 1.65;
+    }
+
+    .demo-label {
+        color: #526174;
+        font-size: .82rem;
+        margin-top: -.3rem;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        min-height: 2.65rem;
+        font-weight: 650;
+    }
+
+    /* File uploader */
+    [data-testid="stFileUploader"] {
+        background: white;
+        border: 1.5px dashed #8db9ca;
+        border-radius: 16px;
+        padding: .6rem;
+    }
+
+    /* Mobile */
     @media (max-width: 700px) {
-
         .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-            padding-top: 0.8rem;
+            padding-left: .85rem;
+            padding-right: .85rem;
         }
 
-        .hero-box {
+        .hero {
             padding: 2rem 1.35rem;
             border-radius: 18px;
         }
 
-        .hero-title {
-            font-size: 2rem;
+        .hero h1 {
+            font-size: 2.05rem;
         }
 
-        .hero-description {
-            font-size: 0.92rem;
+        .hero p {
+            font-size: .92rem;
         }
 
-        .hero-tag {
-            font-size: 0.68rem;
+        .hero-kicker {
+            font-size: .64rem;
         }
 
-        .app-title {
-            font-size: 1rem;
+        .brand-name {
+            font-size: 1.05rem;
         }
-
-        .app-subtitle {
-            font-size: 0.65rem;
-        }
-
     }
-
-    /* Remove Streamlit default footer/menu */
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-
 # ============================================================
-# TOP NAVIGATION
+# TOP BAR
 # ============================================================
 
-# Brand row
-brand_col, space_col = st.columns(
-    [3, 1]
-)
+brand, nav = st.columns([1.25, 2.75], vertical_alignment="center")
 
-with brand_col:
+with brand:
+    st.markdown("**🩻 CT Image Quality Flagger**")
+    st.caption("AI-assisted CT image-quality research prototype")
 
-    st.markdown(
-        """
-        <div class="app-title">
-            🩻 CT Image Quality Flagger
-        </div>
-
-        <div class="app-subtitle">
-            AI-assisted CT image-quality research prototype
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-st.write("")
-
-
-# Navigation buttons
-nav1, nav2, nav3, nav4 = st.columns(4)
-
-with nav1:
-
-    if st.button(
-        "🏠 Home",
-        use_container_width=True,
-        type="secondary"
-    ):
-        go_to("Home")
-
-with nav2:
-
-    if st.button(
-        "🔬 Analyze",
-        use_container_width=True,
-        type="secondary"
-    ):
-        go_to("Analyze")
-
-with nav3:
-
-    if st.button(
-        "📋 Report",
-        use_container_width=True,
-        type="secondary"
-    ):
-        go_to("Report")
-
-with nav4:
-
-    if st.button(
-        "🧠 Learn",
-        use_container_width=True,
-        type="secondary"
-    ):
-        go_to("Learn")
-
+with nav:
+    n1, n2, n3, n4 = st.columns(4)
+    with n1:
+        if st.button("Home", use_container_width=True):
+            navigate("Home")
+    with n2:
+        if st.button("Analyze", use_container_width=True):
+            navigate("Analyze")
+    with n3:
+        if st.button("Results", use_container_width=True):
+            navigate("Results")
+    with n4:
+        if st.button("Learn", use_container_width=True):
+            navigate("Learn")
 
 st.divider()
 
-
 # ============================================================
-# MODEL LOADING
+# MODEL
 # ============================================================
 
 @st.cache_resource
 def load_model():
-
-    model_path = hf_hub_download(
+    path = hf_hub_download(
         repo_id=HF_REPO,
-        filename=MODEL_FILENAME
+        filename=MODEL_FILENAME,
     )
-
-    return tf.keras.models.load_model(
-        model_path
-    )
+    return tf.keras.models.load_model(path)
 
 
 @st.cache_resource
 def build_gradcam_extractor(model):
-
-    base_model = model.layers[0]
-
+    base = model.layers[0]
     extractor = tf.keras.Model(
-        base_model.input,
-        base_model.get_layer(
-            GRADCAM_LAYER
-        ).output
+        base.input,
+        base.get_layer(GRADCAM_LAYER).output,
     )
-
-    return extractor, base_model
+    return extractor, base
 
 
 try:
-
     model = load_model()
-
-    conv_layer_model, base_model = (
-        build_gradcam_extractor(model)
-    )
-
+    conv_layer_model, base_model = build_gradcam_extractor(model)
     MODEL_READY = True
-
-except Exception as e:
-
+    MODEL_ERROR = None
+except Exception as exc:
     MODEL_READY = False
-    MODEL_ERROR = str(e)
-
+    MODEL_ERROR = str(exc)
 
 # ============================================================
-# DICOM PROCESSING
+# IMAGE FUNCTIONS
 # ============================================================
 
-def dicom_to_image(dicom_bytes):
+def dicom_to_image(data):
+    ds = pydicom.dcmread(io.BytesIO(data))
 
-    ds = pydicom.dcmread(
-        io.BytesIO(dicom_bytes)
-    )
+    pixels = ds.pixel_array.astype(np.float32)
+    slope = float(getattr(ds, "RescaleSlope", 1))
+    intercept = float(getattr(ds, "RescaleIntercept", 0))
+    hu = pixels * slope + intercept
 
-    pixels = ds.pixel_array.astype(
-        np.float32
-    )
+    low = WINDOW_CENTER - WINDOW_WIDTH / 2
+    high = WINDOW_CENTER + WINDOW_WIDTH / 2
 
-    slope = float(
-        getattr(
-            ds,
-            "RescaleSlope",
-            1
-        )
-    )
+    hu = np.clip(hu, low, high)
+    hu = ((hu - low) / (high - low) * 255)
+    hu = np.clip(hu, 0, 255).astype(np.uint8)
 
-    intercept = float(
-        getattr(
-            ds,
-            "RescaleIntercept",
-            0
-        )
-    )
-
-    hu = (
-        pixels * slope
-        + intercept
-    )
-
-    lower = (
-        WINDOW_CENTER
-        - WINDOW_WIDTH / 2
-    )
-
-    upper = (
-        WINDOW_CENTER
-        + WINDOW_WIDTH / 2
-    )
-
-    hu = np.clip(
-        hu,
-        lower,
-        upper
-    )
-
-    hu = (
-        (hu - lower)
-        /
-        (upper - lower)
-        * 255
-    )
-
-    hu = np.clip(
-        hu,
-        0,
-        255
-    ).astype(
-        np.uint8
-    )
-
-    image = Image.fromarray(
-        hu
-    ).convert(
-        "RGB"
-    )
-
-    image = image.resize(
-        IMAGE_SIZE
-    )
+    image = Image.fromarray(hu).convert("RGB").resize(IMAGE_SIZE)
 
     metadata = {}
-
     fields = [
         ("KVP", "Tube voltage"),
         ("XRayTubeCurrent", "Tube current"),
@@ -458,402 +332,160 @@ def dicom_to_image(dicom_bytes):
         ("BodyPartExamined", "Body part"),
         ("Manufacturer", "Scanner manufacturer"),
         ("ManufacturerModelName", "Scanner model"),
-        ("SeriesDescription", "Series description")
+        ("SeriesDescription", "Series description"),
     ]
 
     for tag, label in fields:
-
-        if hasattr(
-            ds,
-            tag
-        ):
-
-            metadata[label] = str(
-                getattr(
-                    ds,
-                    tag
-                )
-            )
+        if hasattr(ds, tag):
+            metadata[label] = str(getattr(ds, tag))
 
     return image, metadata
 
 
-# ============================================================
-# IMAGE PREPARATION
-# ============================================================
-
 def prepare_image(image):
+    image = image.convert("RGB").resize(IMAGE_SIZE)
+    arr = np.array(image).astype(np.uint8)
 
-    image = (
-        image
-        .convert("RGB")
-        .resize(IMAGE_SIZE)
-    )
+    model_input = np.expand_dims(arr.astype(np.float32), axis=0)
+    model_input = preprocess_input(model_input)
 
-    image_array = np.array(
-        image
-    ).astype(
-        np.uint8
-    )
+    return arr, model_input
 
-    model_input = (
-        image_array
-        .astype(np.float32)
-    )
-
-    model_input = np.expand_dims(
-        model_input,
-        axis=0
-    )
-
-    model_input = preprocess_input(
-        model_input
-    )
-
-    return (
-        image_array,
-        model_input
-    )
-
-
-# ============================================================
-# MODEL PREDICTION
-# ============================================================
 
 def get_score(model_input):
+    preds = []
 
-    predictions = []
+    preds.append(float(model.predict(model_input, verbose=0)[0][0]))
 
-    # Original
-    predictions.append(
-        float(
-            model.predict(
-                model_input,
-                verbose=0
-            )[0][0]
-        )
-    )
-
-    # Horizontal flip
-    flipped = np.flip(
-        model_input,
-        axis=2
-    )
-
-    predictions.append(
-        float(
-            model.predict(
-                flipped,
-                verbose=0
-            )[0][0]
-        )
-    )
+    flipped = np.flip(model_input, axis=2)
+    preds.append(float(model.predict(flipped, verbose=0)[0][0]))
 
     image = model_input[0]
+    center = (112, 112)
 
-    center = (
-        112,
-        112
-    )
-
-    for angle in [-5, 5]:
-
-        matrix = cv2.getRotationMatrix2D(
-            center,
-            angle,
-            1.0
-        )
-
+    for angle in (-5, 5):
+        matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated = cv2.warpAffine(
             image,
             matrix,
             IMAGE_SIZE,
-            borderMode=cv2.BORDER_REFLECT
+            borderMode=cv2.BORDER_REFLECT,
         )
+        rotated = np.expand_dims(rotated, axis=0)
+        preds.append(float(model.predict(rotated, verbose=0)[0][0]))
 
-        rotated = np.expand_dims(
-            rotated,
-            axis=0
-        )
+    crop = image[11:213, 11:213]
+    zoomed = cv2.resize(crop, IMAGE_SIZE)
+    zoomed = np.expand_dims(zoomed, axis=0)
+    preds.append(float(model.predict(zoomed, verbose=0)[0][0]))
 
-        predictions.append(
-            float(
-                model.predict(
-                    rotated,
-                    verbose=0
-                )[0][0]
-            )
-        )
-
-    crop = image[
-        11:213,
-        11:213
-    ]
-
-    zoomed = cv2.resize(
-        crop,
-        IMAGE_SIZE
-    )
-
-    zoomed = np.expand_dims(
-        zoomed,
-        axis=0
-    )
-
-    predictions.append(
-        float(
-            model.predict(
-                zoomed,
-                verbose=0
-            )[0][0]
-        )
-    )
-
-    return float(
-        np.mean(
-            predictions
-        )
-    )
+    return float(np.mean(preds))
 
 
-# ============================================================
-# GRAD-CAM
-# ============================================================
-
-def make_gradcam(
-    image_array,
-    model_input
-):
-
+def make_gradcam(image_array, model_input):
     with tf.GradientTape() as tape:
-
-        conv_output = (
-            conv_layer_model(
-                model_input
-            )
-        )
-
-        tape.watch(
-            conv_output
-        )
+        conv_output = conv_layer_model(model_input)
+        tape.watch(conv_output)
 
         x = conv_output
-
         found = False
 
         for layer in base_model.layers:
-
             if found:
-
                 x = layer(x)
-
             if layer.name == GRADCAM_LAYER:
-
                 found = True
 
         for layer in model.layers[1:]:
-
             x = layer(x)
 
         loss = x[:, 0]
 
-    gradients = tape.gradient(
-        loss,
-        conv_output
-    )
+    grads = tape.gradient(loss, conv_output)
+    pooled = tf.reduce_mean(grads, axis=(0, 1, 2))
+    conv = conv_output[0]
 
-    pooled_gradients = tf.reduce_mean(
-        gradients,
-        axis=(0, 1, 2)
-    )
-
-    conv_output = conv_output[0]
-
-    heatmap = (
-        conv_output
-        @ pooled_gradients[
-            ..., tf.newaxis
-        ]
-    )
-
-    heatmap = tf.squeeze(
-        heatmap
-    )
-
-    heatmap = tf.maximum(
-        heatmap,
-        0
-    )
-
-    heatmap = (
-        heatmap
-        /
-        (
-            tf.reduce_max(
-                heatmap
-            )
-            + 1e-8
-        )
-    )
+    heatmap = conv @ pooled[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+    heatmap = tf.maximum(heatmap, 0)
+    heatmap /= tf.reduce_max(heatmap) + 1e-8
 
     heatmap = cv2.resize(
         heatmap.numpy(),
-        IMAGE_SIZE
+        IMAGE_SIZE,
+        interpolation=cv2.INTER_CUBIC,
     )
 
-    heatmap = np.clip(
-        heatmap,
-        0,
-        1
-    )
-
+    heatmap = np.clip(heatmap, 0, 1)
     heatmap_color = cv2.applyColorMap(
-        (
-            heatmap * 255
-        ).astype(
-            np.uint8
-        ),
-        cv2.COLORMAP_JET
+        (heatmap * 255).astype(np.uint8),
+        cv2.COLORMAP_JET,
     )
-
     heatmap_color = cv2.cvtColor(
         heatmap_color,
-        cv2.COLOR_BGR2RGB
+        cv2.COLOR_BGR2RGB,
     )
 
-    image_array = np.clip(
-        image_array,
-        0,
-        255
-    ).astype(
-        np.uint8
-    )
-
-    heatmap_color = np.clip(
-        heatmap_color,
-        0,
-        255
-    ).astype(
-        np.uint8
-    )
-
+    image_array = np.clip(image_array, 0, 255).astype(np.uint8)
     overlay = cv2.addWeighted(
         image_array,
-        0.60,
+        .60,
         heatmap_color,
-        0.40,
-        0
-    )
-
-    return np.clip(
-        overlay,
+        .40,
         0,
-        255
-    ).astype(
-        np.uint8
     )
 
+    return np.clip(overlay, 0, 255).astype(np.uint8)
 
-# ============================================================
-# ANALYSIS
-# ============================================================
 
 def analyze(image):
-
-    image_array, model_input = (
-        prepare_image(
-            image
-        )
-    )
-
-    score = get_score(
-        model_input
-    )
-
-    gradcam = make_gradcam(
-        image_array,
-        model_input
-    )
-
-    return (
-        image_array,
-        gradcam,
-        score
-    )
+    arr, model_input = prepare_image(image)
+    score = get_score(model_input)
+    gradcam = make_gradcam(arr, model_input)
+    return arr, gradcam, score
 
 
-# ============================================================
-# RESULT INTERPRETATION
-# ============================================================
-
-def interpret(score):
-
-    if score >= 0.50:
-
+def interpretation(score):
+    if score >= .50:
         return (
             "Higher-risk pattern",
             "🔴",
-            "Review recommended",
-            "The model produced a relatively high quality-risk score."
+            "Review signal triggered",
+            "The model produced a relatively high quality-risk score.",
         )
-
-    elif score >= THRESHOLD:
-
+    if score >= THRESHOLD:
         return (
             "Borderline risk",
             "🟠",
-            "Review recommended",
-            "The score has reached the project's review threshold."
+            "Review signal triggered",
+            "The score has reached this project's review threshold.",
         )
-
-    elif score >= 0.15:
-
+    if score >= .15:
         return (
             "Lower-risk pattern",
             "🟡",
             "No automatic flag",
-            "The score is below the project's review threshold, although some uncertainty remains."
+            "The score is below the project's review threshold, although some uncertainty remains.",
         )
-
-    else:
-
-        return (
-            "Low-risk pattern",
-            "🟢",
-            "No automatic flag",
-            "The model produced a relatively low quality-risk score."
-        )
+    return (
+        "Low-risk pattern",
+        "🟢",
+        "No automatic flag",
+        "The model produced a relatively low quality-risk score.",
+    )
 
 
-# ============================================================
-# SAVE RESULT
-# ============================================================
-
-def save_result(
-    name,
-    image,
-    gradcam,
-    score,
-    metadata
-):
-
-    existing = [
-        r["name"]
-        for r in st.session_state.results
-    ]
-
-    if name not in existing:
-
-        st.session_state.results.append(
-            {
-                "name": name,
-                "image": image,
-                "gradcam": gradcam,
-                "score": score,
-                "metadata": metadata
-            }
-        )
-
+def add_result(name, arr, gradcam, score, metadata):
+    names = [r["name"] for r in st.session_state.results]
+    if name not in names:
+        st.session_state.results.append({
+            "name": name,
+            "image": arr,
+            "gradcam": gradcam,
+            "score": score,
+            "metadata": metadata,
+        })
+    st.session_state.selected_result = name
 
 # ============================================================
 # HOME
@@ -861,213 +493,99 @@ def save_result(
 
 if st.session_state.page == "Home":
 
-    # ========================================================
-    # HERO
-    # ========================================================
-
     st.markdown(
-        '<div class="hero-box">',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "MEDICAL IMAGING TECHNOLOGY × ARTIFICIAL INTELLIGENCE"
-    )
-
-    st.markdown(
-        '<div class="hero-title">CT Image Quality Flagger</div>',
-        unsafe_allow_html=True
-    )
-
-    st.write(
         """
-        An AI-assisted research prototype exploring
-        CT image-quality assessment as a supportive layer
-        in dose-optimization research.
-        """
+        <div class="hero">
+            <div class="hero-kicker">
+                MEDICAL IMAGING TECHNOLOGY × ARTIFICIAL INTELLIGENCE
+            </div>
+            <h1>CT Image Quality Flagger</h1>
+            <p>
+                An AI-assisted research prototype exploring whether
+                CT image-quality assessment can provide an additional
+                signal during dose-optimization research.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.markdown(
-        "</div>",
-        unsafe_allow_html=True
-    )
-
-    # ========================================================
-    # INTRO
-    # ========================================================
-
-    left, right = st.columns(
-        [1.4, 1],
-        gap="large"
-    )
+    left, right = st.columns([1.45, 1], gap="large")
 
     with left:
-
-        st.header(
-            "Hi, I'm Zainab 👋"
-        )
-
+        st.markdown("### Hi, I'm Zainab 👋")
         st.write(
             """
-            I'm a Medical Imaging Technology student interested
-            in how artificial intelligence can become a useful
-            part of medical-imaging workflows.
+            I'm a Medical Imaging Technology student interested in
+            how artificial intelligence can support medical-imaging
+            workflows.
 
-            I built this prototype around a practical CT question:
-            **how can we think about radiation dose and image
-            quality together?**
+            This project started with a practical question:
 
-            The goal is not to diagnose disease. Instead, the
-            model explores whether certain image patterns may
-            deserve an additional quality review.
+            **What happens when CT radiation dose is reduced, and
+            how can we notice when image quality may need another look?**
+
+            The aim is not to diagnose disease. The model provides a
+            supportive research signal that can be explored alongside
+            professional image assessment.
             """
         )
 
-        st.info(
-            """
-            **The idea in one sentence:**  
-            use AI as a supportive signal for image-quality
-            assessment — not as a replacement for professional
-            judgment.
-            """
-        )
+        if st.button(
+            "🔬 Start CT Analysis",
+            type="primary",
+            use_container_width=True,
+        ):
+            navigate("Analyze")
 
     with right:
-
+        st.markdown("### What can you do here?")
         st.markdown(
             """
-            <div class="info-card">
+            **🩻 Analyze a CT image**  
+            Try a demonstration case or upload an image.
 
-            <div class="info-card-title">
-                What can you explore?
-            </div>
+            **📊 Understand the score**  
+            See what the model's output means in simple language.
 
-            <div class="info-card-text">
+            **👁️ Explore Grad-CAM**  
+            See a heatmap of regions that influenced the prediction.
 
-            🩻 Analyze CT images<br><br>
-
-            📊 Generate a quality-risk score<br><br>
-
-            👁️ Visualize model attention with Grad-CAM<br><br>
-
-            📋 Read selected DICOM information<br><br>
-
-            📥 Create a simple analysis report
-
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
+            **📋 Review DICOM information**  
+            When available, view selected acquisition details.
+            """
         )
 
     st.write("")
+    st.markdown("### The idea in four steps")
 
-    if st.button(
-        "🔬 Start CT Analysis",
-        type="primary",
-        use_container_width=True
-    ):
+    a, b, c, d = st.columns(4)
 
-        go_to("Analyze")
+    with a:
+        st.markdown("**01 — Upload**")
+        st.caption("Provide a CT image in DICOM, PNG or JPG format.")
 
-    st.markdown("---")
+    with b:
+        st.markdown("**02 — Analyze**")
+        st.caption("VGG16 produces a quality-risk score.")
 
-    st.subheader(
-        "How the application works"
-    )
+    with c:
+        st.markdown("**03 — Understand**")
+        st.caption("Grad-CAM helps visualize model attention.")
 
-    c1, c2, c3 = st.columns(
-        3,
-        gap="medium"
-    )
+    with d:
+        st.markdown("**04 — Review**")
+        st.caption("The output is a research signal, not a clinical decision.")
 
-    with c1:
-
-        st.markdown(
-            """
-            <div class="info-card">
-
-            <div class="info-card-title">
-                🧠 1. VGG16
-            </div>
-
-            <div class="info-card-text">
-
-            A deep-learning image model that learns
-            visual patterns from images.
-
-            Here it is adapted using
-            <b>transfer learning</b> for CT
-            image-quality assessment.
-
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with c2:
-
-        st.markdown(
-            """
-            <div class="info-card">
-
-            <div class="info-card-title">
-                🔄 2. Multiple Views
-            </div>
-
-            <div class="info-card-text">
-
-            The model examines several slightly
-            modified versions of the same image.
-
-            Their predictions are combined to make
-            the final score more stable.
-
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with c3:
-
-        st.markdown(
-            """
-            <div class="info-card">
-
-            <div class="info-card-title">
-                👁️ 3. Grad-CAM
-            </div>
-
-            <div class="info-card-text">
-
-            A heatmap shows which image regions
-            contributed to the model's prediction.
-
-            This makes the model's output easier
-            to inspect.
-
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.markdown("---")
-
+    st.write("")
     st.warning(
         """
-        **Research prototype:** This application has not been
-        clinically validated. Its output should not be used to
-        make patient-care decisions or modify CT protocols.
+        **Important:** This is an educational/research prototype.
+        It has not been clinically validated and should not be used
+        to diagnose patients, accept/reject clinical scans, or change
+        CT acquisition protocols.
         """
     )
-
 
 # ============================================================
 # ANALYZE
@@ -1075,524 +593,256 @@ if st.session_state.page == "Home":
 
 elif st.session_state.page == "Analyze":
 
-    st.title(
-        "🔬 Analyze a CT Image"
-    )
-
+    st.markdown('<div class="eyebrow">CT ANALYSIS</div>', unsafe_allow_html=True)
+    st.title("Analyze a CT Image")
     st.write(
-        """
-        Test the model using a demonstration image or upload
-        your own CT image.
-        """
+        "Choose a demonstration case or upload your own image. "
+        "Nothing is analyzed until you select an analysis action."
     )
 
-    # ========================================================
-    # DEMO
-    # ========================================================
+    if not MODEL_READY:
+        st.error("The AI model could not be loaded.")
+        st.caption(MODEL_ERROR)
 
-    st.subheader(
-        "🧪 Demonstration cases"
-    )
-
+    st.markdown("### 🧪 Demonstration cases")
     st.caption(
-        "These images are included only to demonstrate how the application works."
+        "These are included only to demonstrate how the application works."
     )
 
     demo_folder = "sample_images"
-
     demos = [
-        (
-            "Demo Case 1",
-            "sample_acceptable_1.png"
-        ),
-        (
-            "Demo Case 2",
-            "sample_acceptable_2.png"
-        ),
-        (
-            "Demo Case 3",
-            "sample_flagged_1.png"
-        ),
-        (
-            "Demo Case 4",
-            "sample_flagged_2.png"
-        )
+        ("Demo Case 1", "sample_acceptable_1.png"),
+        ("Demo Case 2", "sample_acceptable_2.png"),
+        ("Demo Case 3", "sample_flagged_1.png"),
+        ("Demo Case 4", "sample_flagged_2.png"),
     ]
 
-    cols = st.columns(
-        4
-    )
+    cols = st.columns(4)
 
-    for i, (
-        title,
-        filename
-    ) in enumerate(demos):
-
-        path = os.path.join(
-            demo_folder,
-            filename
-        )
+    for i, (title, filename) in enumerate(demos):
+        path = os.path.join(demo_folder, filename)
 
         with cols[i]:
-
             if os.path.exists(path):
-
-                demo_image = (
-                    Image.open(
-                        path
-                    ).convert(
-                        "RGB"
-                    )
-                )
-
+                demo_image = Image.open(path).convert("RGB")
                 st.image(
                     demo_image,
                     caption=title,
-                    use_container_width=True
+                    use_container_width=True,
                 )
 
                 if st.button(
-                    "Analyze",
+                    f"Try {title}",
                     key=f"demo_{i}",
-                    use_container_width=True
+                    use_container_width=True,
+                    disabled=not MODEL_READY,
                 ):
+                    with st.spinner("Analyzing demonstration case..."):
+                        arr, gradcam, score = analyze(demo_image)
 
-                    if not MODEL_READY:
-
-                        st.error(
-                            "The model could not be loaded."
-                        )
-
-                    else:
-
-                        with st.spinner(
-                            "Analyzing..."
-                        ):
-
-                            image, gradcam, score = (
-                                analyze(
-                                    demo_image
-                                )
-                            )
-
-                        save_result(
-                            title,
-                            image,
-                            gradcam,
-                            score,
-                            {}
-                        )
-
-                        st.rerun()
-
+                    add_result(title, arr, gradcam, score, {})
+                    navigate("Results")
             else:
+                st.info(f"{title} is not available.")
 
-                st.info(
-                    f"{title} is not available yet."
-                )
+    st.divider()
 
-    st.markdown("---")
-
-    # ========================================================
-    # UPLOAD
-    # ========================================================
-
-    st.subheader(
-        "📤 Upload your CT image"
-    )
+    st.markdown("### 📤 Upload your CT image")
 
     st.write(
         """
-        **DICOM (.dcm)** is the preferred format for medical
-        imaging because it can contain both the CT image and
-        acquisition information.
+        **DICOM (.dcm)** is preferred for CT because it can contain
+        the image together with acquisition information.
 
-        **PNG / JPG / JPEG** can also be used for demonstration.
+        **PNG / JPG / JPEG** are also supported for demonstration
+        and image-based testing.
         """
     )
 
-    uploaded = st.file_uploader(
+    files = st.file_uploader(
         "Choose CT image(s)",
-        type=[
-            "dcm",
-            "png",
-            "jpg",
-            "jpeg"
-        ],
-        accept_multiple_files=True
+        type=["dcm", "png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        help="For large CT/DICOM files, the Streamlit server configuration controls the upload limit.",
     )
 
-    if uploaded:
-
-        for file in uploaded:
-
-            if any(
-                r["name"] == file.name
-                for r in st.session_state.results
-            ):
-
+    if files and MODEL_READY:
+        for file in files:
+            if any(r["name"] == file.name for r in st.session_state.results):
                 continue
 
             try:
-
-                if not MODEL_READY:
-
-                    st.error(
-                        "The AI model could not be loaded."
-                    )
-
-                    break
-
-                with st.spinner(
-                    f"Analyzing {file.name}..."
-                ):
-
-                    if file.name.lower().endswith(
-                        ".dcm"
-                    ):
-
-                        image, metadata = (
-                            dicom_to_image(
-                                file.read()
-                            )
-                        )
-
+                with st.spinner(f"Analyzing {file.name}..."):
+                    if file.name.lower().endswith(".dcm"):
+                        image, metadata = dicom_to_image(file.read())
                     else:
-
-                        image = (
-                            Image.open(
-                                file
-                            ).convert(
-                                "RGB"
-                            )
-                        )
-
+                        image = Image.open(file).convert("RGB")
                         metadata = {}
 
-                    image_array, gradcam, score = (
-                        analyze(
-                            image
-                        )
-                    )
+                    arr, gradcam, score = analyze(image)
 
-                save_result(
-                    file.name,
-                    image_array,
-                    gradcam,
-                    score,
-                    metadata
-                )
+                add_result(file.name, arr, gradcam, score, metadata)
 
-                st.success(
-                    f"{file.name} analyzed successfully."
-                )
+                st.success(f"{file.name} analyzed.")
+            except Exception as exc:
+                st.error(f"Could not analyze {file.name}.")
+                st.caption(str(exc))
 
-            except Exception as error:
+        if files:
+            st.button(
+                "View latest result →",
+                type="primary",
+                on_click=navigate,
+                args=("Results",),
+            )
 
-                st.error(
-                    f"Could not analyze {file.name}."
-                )
+    st.divider()
 
-                st.caption(
-                    str(error)
-                )
+    st.markdown("### Before you interpret the result")
 
-    # ========================================================
-    # RESULT
-    # ========================================================
+    st.markdown(
+        """
+        <div class="explain">
+        <b>Quality-risk score</b> is the model's numerical output.
+        A higher score means the image more strongly resembles the
+        pattern the model was trained to flag.
 
-    if st.session_state.results:
+        The project's review threshold is <b>0.25</b>. This is a
+        project-specific research threshold, not a universal clinical cutoff.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        result = (
-            st.session_state.results[-1]
+# ============================================================
+# RESULTS
+# ============================================================
+
+elif st.session_state.page == "Results":
+
+    st.markdown('<div class="eyebrow">ANALYSIS RESULT</div>', unsafe_allow_html=True)
+    st.title("Your Result")
+
+    if not st.session_state.results:
+        st.info("No images have been analyzed yet.")
+        if st.button("Go to CT Analysis", type="primary"):
+            navigate("Analyze")
+    else:
+        names = [r["name"] for r in st.session_state.results]
+
+        selected = st.selectbox(
+            "Select an analyzed image",
+            names,
+            index=max(
+                0,
+                names.index(st.session_state.selected_result)
+                if st.session_state.selected_result in names else 0,
+            ),
         )
 
+        result = next(r for r in st.session_state.results if r["name"] == selected)
         score = result["score"]
 
-        (
-            category,
-            emoji,
-            recommendation,
-            explanation
-        ) = interpret(
-            score
-        )
+        category, emoji, recommendation, explanation = interpretation(score)
 
-        st.markdown("---")
+        top1, top2 = st.columns([1.1, 1.9], gap="large")
 
-        st.subheader(
-            "📊 Your result"
-        )
+        with top1:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<div class="eyebrow">MODEL ASSESSMENT</div>', unsafe_allow_html=True)
+            st.markdown(f"## {emoji} {category}")
+            st.markdown('<div class="score-label">Quality-risk score</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="score">{score:.3f}</div>', unsafe_allow_html=True)
+            st.progress(min(max(score, 0), 1))
+            st.markdown(f"**{recommendation}**")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown(
-            f"## {emoji} {category}"
-        )
-
-        st.markdown(
-            '<div class="small-label">Quality-risk score</div>',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            f'<div class="score-number">{score:.3f}</div>',
-            unsafe_allow_html=True
-        )
-
-        st.progress(
-            min(
-                max(score, 0),
-                1
-            )
-        )
-
-        st.write(
-            f"**Project threshold: {THRESHOLD:.2f}**"
-        )
-
-        if score >= THRESHOLD:
-
-            st.warning(
-                "Review signal triggered. "
-                "The model score has reached the project's threshold."
+        with top2:
+            st.markdown("### What does this mean?")
+            st.markdown(
+                f"""
+                <div class="explain">
+                {explanation}<br><br>
+                <b>Simple explanation:</b><br>
+                The model is giving a signal about how strongly this
+                image resembles the pattern it was trained to flag.
+                It is <b>not</b> saying that the patient has a disease,
+                and it does not establish whether the image is clinically
+                acceptable.
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
-        else:
+            if score >= THRESHOLD:
+                st.warning(
+                    f"The score is at or above the project's review threshold ({THRESHOLD:.2f})."
+                )
+            else:
+                st.info(
+                    f"The score is below the project's review threshold ({THRESHOLD:.2f})."
+                )
 
-            st.success(
-                "No automatic review flag. "
-                "The score is below the project's threshold."
-            )
+        st.write("")
+        st.markdown("### 👁️ What did the model focus on?")
 
-        st.markdown(
-            "### 💡 What does this mean?"
+        st.caption(
+            "Grad-CAM is a visualization aid that highlights image regions "
+            "that contributed to the model prediction. It is not a diagnostic heatmap."
         )
 
-        st.info(
-            explanation
-        )
+        c1, c2 = st.columns(2, gap="large")
 
-        st.write(
-            """
-            **Simple explanation:**  
-            the model is giving us a signal about how strongly
-            the image resembles the pattern it was trained to flag.
-
-            It is **not** saying that the patient has a disease,
-            and it does **not** replace professional image review.
-            """
-        )
-
-        with st.expander(
-            "Why is 0.25 important?"
-        ):
-
-            st.write(
-                """
-                A threshold is simply a decision point.
-
-                In this project, a score of **0.25 or higher**
-                produces a review flag.
-
-                This value belongs to this research project.
-                It is **not a universal clinical cutoff**.
-                """
-            )
-
-        st.markdown(
-            "### 👁️ What did the model focus on?"
-        )
-
-        st.write(
-            """
-            Grad-CAM creates a heatmap showing regions that
-            contributed to the model's prediction.
-
-            It is an explanation aid, not a diagnostic image.
-            """
-        )
-
-        col1, col2 = st.columns(
-            2,
-            gap="large"
-        )
-
-        with col1:
-
-            original = np.clip(
-                result["image"],
-                0,
-                255
-            ).astype(
-                np.uint8
-            )
-
+        with c1:
             st.image(
-                original,
-                caption="Original CT image",
-                use_container_width=True
+                np.clip(result["image"], 0, 255).astype(np.uint8),
+                caption="Original image",
+                use_container_width=True,
             )
 
-        with col2:
-
-            gradcam = np.clip(
-                result["gradcam"],
-                0,
-                255
-            ).astype(
-                np.uint8
-            )
-
+        with c2:
             st.image(
-                gradcam,
+                np.clip(result["gradcam"], 0, 255).astype(np.uint8),
                 caption="Grad-CAM visualization",
-                use_container_width=True
+                use_container_width=True,
             )
 
         if result["metadata"]:
+            st.markdown("### 📋 DICOM information")
+            st.caption(
+                "These values come from the DICOM metadata when they are present in the uploaded file."
+            )
 
-            with st.expander(
-                "📋 DICOM information"
-            ):
+            metadata_df = pd.DataFrame(
+                list(result["metadata"].items()),
+                columns=["Parameter", "Value"],
+            )
 
-                metadata_df = pd.DataFrame(
-                    list(
-                        result["metadata"].items()
-                    ),
-                    columns=[
-                        "Parameter",
-                        "Value"
-                    ]
-                )
+            st.dataframe(
+                metadata_df,
+                use_container_width=True,
+                hide_index=True,
+            )
 
-                st.dataframe(
-                    metadata_df,
-                    use_container_width=True,
-                    hide_index=True
-                )
+        with st.expander("Why is 0.25 the threshold?"):
+            st.write(
+                """
+                A threshold is simply a decision point. In this project,
+                a score of 0.25 or higher produces a review flag.
+
+                This threshold was selected for this research prototype.
+                It is not a universal clinical cutoff and should not be
+                used to make patient-care decisions.
+                """
+            )
 
         st.warning(
             """
-            This is an educational and research prototype.
-            It should not be used to accept/reject clinical scans,
-            diagnose patients, or change CT acquisition protocols.
+            **Clinical safety:** This prototype is not clinically validated.
+            Do not use its output to diagnose disease, accept/reject a clinical
+            scan, or change CT radiation-dose protocols.
             """
         )
-
-
-# ============================================================
-# REPORT
-# ============================================================
-
-elif st.session_state.page == "Report":
-
-    st.title(
-        "📋 Analysis Report"
-    )
-
-    if not st.session_state.results:
-
-        st.info(
-            "No images have been analyzed yet."
-        )
-
-        if st.button(
-            "🔬 Analyze a CT"
-        ):
-
-            go_to("Analyze")
-
-    else:
-
-        results = (
-            st.session_state.results
-        )
-
-        scores = [
-            r["score"]
-            for r in results
-        ]
-
-        flagged = sum(
-            s >= THRESHOLD
-            for s in scores
-        )
-
-        a, b, c = st.columns(3)
-
-        with a:
-
-            st.metric(
-                "Images analyzed",
-                len(results)
-            )
-
-        with b:
-
-            st.metric(
-                "Review flags",
-                flagged
-            )
-
-        with c:
-
-            st.metric(
-                "Average score",
-                f"{np.mean(scores):.3f}"
-            )
-
-        rows = []
-
-        for r in results:
-
-            category, _, recommendation, _ = (
-                interpret(
-                    r["score"]
-                )
-            )
-
-            rows.append(
-                {
-                    "File": r["name"],
-                    "Risk score": round(
-                        r["score"],
-                        3
-                    ),
-                    "Assessment": category,
-                    "Recommendation": recommendation
-                }
-            )
-
-        df = pd.DataFrame(
-            rows
-        )
-
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        csv = df.to_csv(
-            index=False
-        ).encode(
-            "utf-8"
-        )
-
-        st.download_button(
-            "📥 Download CSV report",
-            csv,
-            "ct_quality_report.csv",
-            "text/csv"
-        )
-
-        if st.button(
-            "Clear report"
-        ):
-
-            st.session_state.results = []
-
-            st.rerun()
-
 
 # ============================================================
 # LEARN
@@ -1600,209 +850,138 @@ elif st.session_state.page == "Report":
 
 elif st.session_state.page == "Learn":
 
-    st.title(
-        "🧠 Learn About the Project"
-    )
+    st.markdown('<div class="eyebrow">PROJECT GUIDE</div>', unsafe_allow_html=True)
+    st.title("Understand the Technology")
 
     st.write(
-        """
-        Technical terms are explained here in simple language,
-        so the project is understandable even if you are new
-        to artificial intelligence.
-        """
+        "Technical terms are explained in simple language so that "
+        "students and non-AI users can understand what the application is doing."
     )
 
-    with st.expander(
-        "🧠 What is VGG16?"
-    ):
-
-        st.write(
+    topics = [
+        (
+            "🧠 VGG16",
             """
-            VGG16 is a deep-learning model designed to learn
-            visual patterns from images.
+            VGG16 is a deep-learning model designed to learn visual
+            patterns in images.
 
-            This project uses **transfer learning**, meaning
-            previously learned visual features are reused and
-            adapted for the CT image-quality task.
-
-            **Simple idea:** instead of teaching an AI model
-            everything from zero, we start with an existing
-            visual model and adapt it to our problem.
+            This project uses transfer learning: instead of training
+            a visual model entirely from zero, previously learned image
+            features are adapted to the CT image-quality task.
             """
-        )
-
-    with st.expander(
-        "🔄 What is Test-Time Augmentation?"
-    ):
-
-        st.write(
+        ),
+        (
+            "🔄 Test-Time Augmentation (TTA)",
             """
-            Test-Time Augmentation, or TTA, means asking the
-            model to examine several slightly modified versions
-            of the same image.
+            TTA means showing the model several slightly modified
+            versions of the same image before producing the final score.
 
-            This project uses five views:
+            Here, five views are averaged: the original image, a flipped
+            version, two small rotations, and a small crop/zoom.
 
-            • Original image
-            • Horizontal flip
-            • Small negative rotation
-            • Small positive rotation
-            • Small crop/zoom
-
-            The predictions are then averaged.
-
-            **Simple idea:** give the model several slightly
-            different looks at the same image before deciding
-            on the final score.
+            The simple idea is to reduce sensitivity to small changes
+            in how the image is presented.
             """
-        )
-
-    with st.expander(
-        "👁️ What is Grad-CAM?"
-    ):
-
-        st.write(
+        ),
+        (
+            "👁️ Grad-CAM",
             """
-            Grad-CAM is a visualization technique that helps
-            us understand which areas of an image contributed
-            to the model's prediction.
+            Grad-CAM is a visualization method used to inspect which
+            regions of an image contributed to a model prediction.
 
-            It produces a heatmap.
+            It produces a heatmap. Think of it as asking:
+            "Where was the model looking?"
 
-            **Simple idea:** it helps answer,
-            "Where was the AI looking?"
-
-            It does not prove that the highlighted area is
-            abnormal or clinically important.
+            It does not prove that the highlighted region is abnormal
+            or clinically important.
             """
-        )
-
-    with st.expander(
-        "🩻 What is DICOM?"
-    ):
-
-        st.write(
+        ),
+        (
+            "🩻 DICOM",
             """
-            DICOM is a standard format used for medical images.
+            DICOM is a standard format used for medical imaging.
 
-            Unlike an ordinary JPG, a DICOM file can contain
-            both the image and information about how the image
-            was acquired.
-
-            Examples include:
-
-            • Tube voltage
-            • Tube current
-            • Exposure
-            • Slice thickness
-            • Body part
-            • Scanner information
+            A DICOM file can contain the image plus information about
+            how it was acquired, such as tube voltage, tube current,
+            exposure and slice thickness.
             """
-        )
-
-    with st.expander(
-        "📈 What is the quality-risk score?"
-    ):
-
-        st.write(
+        ),
+        (
+            "📈 Quality-risk score",
             """
-            The model produces a numerical score rather than
-            simply saying "good" or "bad."
+            The model produces a numerical score rather than a simple
+            yes/no answer.
 
-            A higher score means the image is more strongly
-            associated with the pattern that the model was
-            trained to flag.
+            A higher score means the image more strongly resembles the
+            pattern the model was trained to flag.
 
-            This project uses **0.25** as its review threshold.
-
-            The score is a model output — it is not a clinical
-            diagnostic measurement.
+            This score is a model output, not a clinical measurement.
             """
-        )
-
-    with st.expander(
-        "🎯 What is a threshold?"
-    ):
-
-        st.write(
+        ),
+        (
+            "🎯 Threshold",
             """
             A threshold is a decision point.
 
-            In this project:
+            In this project, 0.25 is the review threshold:
 
-            **Below 0.25**
-            → no automatic review flag
+            Below 0.25 → no automatic review flag.
+            0.25 or above → review signal.
 
-            **0.25 or above**
-            → review flag
-
-            This threshold is specific to this project and
-            should not be treated as a universal clinical rule.
+            This is specific to this project and is not a universal
+            clinical rule.
             """
-        )
-
-    with st.expander(
-        "📊 What do recall and precision mean?"
-    ):
-
-        st.write(
+        ),
+        (
+            "📊 Recall and precision",
             """
-            These are ways of evaluating how well a model
-            identifies the cases it was designed to flag.
-
-            **Recall** asks:
-
-            "Of all the cases that really belonged to the
+            Recall asks: "Of all cases that really belonged to the
             flagged group, how many did the model find?"
 
-            **Precision** asks:
-
-            "Of all the cases the model flagged, how many
+            Precision asks: "Of all cases the model flagged, how many
             actually belonged to the flagged group?"
 
-            For this project, the reported evaluation results
-            were:
+            The reported project results are:
+            Recall 85%, Precision 54%, F1-score 0.66,
+            ROC-AUC 0.839, and full-dose false-positive rate 3.3%.
 
-            • Recall: 85%
-            • Precision: 54%
-            • F1-score: 0.66
-            • ROC-AUC: 0.839
-            • Full-dose false-positive rate: 3.3%
-
-            These results describe the project's evaluation
-            dataset and do not establish clinical effectiveness.
+            These metrics describe the project's evaluation and do not
+            establish clinical effectiveness.
             """
-        )
+        ),
+    ]
 
-    st.markdown("---")
+    for title, explanation in topics:
+        with st.expander(title):
+            st.write(explanation)
 
-    st.subheader(
-        "⚠️ Important limitations"
-    )
+    st.divider()
+
+    st.markdown("### 📚 Project context")
 
     st.write(
         """
-        This is a research prototype developed using a limited
-        public dataset.
+        The model was developed as a research prototype using paired
+        full-dose and low-dose chest CT data. Quality labels were based
+        on a noise-related image-quality proxy rather than
+        radiologist-confirmed diagnostic ground truth.
 
-        The model's quality labels were based on
-        noise-related measurements rather than
-        radiologist-confirmed diagnostic quality.
+        The reported evaluation used patient-level held-out testing.
+        External validation across different patients, scanners and
+        institutions would be needed before any clinical application.
+        """
+    )
 
-        Testing on different patients, scanners and institutions,
-        together with clinically meaningful reference standards,
-        would be needed before considering real clinical use.
-        """)
-
+    st.warning(
+        "Research prototype only — not for clinical use."
+    )
 
 # ============================================================
 # FOOTER
 # ============================================================
 
 st.divider()
-
 st.caption(
-    "CT Image Quality Flagger • "
-    "Zainab Fatima • Medical Imaging Technology • "
-    "Educational & research prototype — not for clinical use."
+    "CT Image Quality Flagger • Zainab Fatima • "
+    "Medical Imaging Technology • Educational/research prototype only"
 )
