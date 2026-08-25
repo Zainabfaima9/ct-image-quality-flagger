@@ -17,7 +17,6 @@ Built independently — no mentor, no hospital access, no coding background at t
 
 ## 📸 See it in action
 
-> **Add your own screenshots here** — take a screenshot of each page from the [live app](https://ct-image-quality-flagger.streamlit.app/), save them in an `assets/` folder in this repo, and this section will render them automatically on GitHub.
 
 <div align="center">
 
