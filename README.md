@@ -216,8 +216,8 @@ Grad-CAM heatmaps consistently concentrate on soft-tissue and organ-boundary reg
 ## ▶️ Running it locally
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/Zainabfatima9/ct-image-quality-flagger.git
+cd ct-image-quality-flagger
 pip install -r requirements.txt
 streamlit run app.py
 ```
