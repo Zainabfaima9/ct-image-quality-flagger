@@ -1206,9 +1206,7 @@ elif st.session_state.page == "Demos":
             gap="medium",
         )
 
-        for i, (title, filename) in enumerate(
-            demos
-        ):
+        for i, (title, filename) in enumerate(demos):
 
             path = os.path.join(
                 demo_folder,
@@ -1221,34 +1219,54 @@ elif st.session_state.page == "Demos":
                     border=True
                 ):
 
-                   if os.path.exists(path):
+                    if os.path.exists(path):
 
-    if filename.lower().endswith(".dcm"):
+                        # ------------------------------------
+                        # LOAD DEMO IMAGE OR DICOM
+                        # ------------------------------------
 
-        with open(path, "rb") as f:
-            dicom_data = f.read()
+                        if filename.lower().endswith(".dcm"):
 
-        demo_image, metadata = dicom_to_image(
-            dicom_data
-        )
+                            with open(path, "rb") as f:
+                                dicom_data = f.read()
 
-    else:
+                            demo_image, metadata = (
+                                dicom_to_image(
+                                    dicom_data
+                                )
+                            )
 
-        demo_image = (
-            Image.open(path)
-            .convert("RGB")
-        )
+                        else:
 
-        metadata = {}
+                            demo_image = (
+                                Image.open(path)
+                                .convert("RGB")
+                            )
 
-    st.image(
-        demo_image,
-        use_container_width=True,
-    )
+                            metadata = {}
+
+                        # ------------------------------------
+                        # PREVIEW
+                        # ------------------------------------
+
+                        st.image(
+                            demo_image,
+                            use_container_width=True,
+                        )
 
                         st.markdown(
                             f"**{title}**"
                         )
+
+                        if filename.lower().endswith(".dcm"):
+
+                            st.caption(
+                                "DICOM CT • Acquisition information available"
+                            )
+
+                        # ------------------------------------
+                        # ANALYZE BUTTON
+                        # ------------------------------------
 
                         if st.button(
                             "Analyze",
@@ -1271,7 +1289,7 @@ elif st.session_state.page == "Demos":
                                 arr,
                                 gradcam,
                                 score,
-                                {},
+                                metadata,
                                 gradcam_error,
                             )
 
