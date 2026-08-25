@@ -207,8 +207,8 @@ def navigate(page):
 # TOP NAVIGATION
 # ============================================================
 
-brand, home_btn, analyze_btn, results_btn, learn_btn = st.columns(
-    [2.6, 1, 1, 1, 1],
+brand, home_btn, analyze_btn, demos_btn, results_btn, learn_btn = st.columns(
+    [2.2, 1, 1, 1, 1, 1],
     vertical_alignment="center",
 )
 
@@ -229,6 +229,10 @@ with home_btn:
 with analyze_btn:
     if st.button("Analyze", use_container_width=True):
         navigate("Analyze")
+
+with demos_btn:
+    if st.button("Demos", use_container_width=True):
+        navigate("Demos")
 
 with results_btn:
     if st.button("Results", use_container_width=True):
@@ -433,107 +437,221 @@ def get_score(model_input):
 # GRAD-CAM
 # ============================================================
 
+def find_base_model(full_model, target_layer_name):
+    """
+    Locate the nested sub-model (e.g. VGG16) inside `full_model`
+    that actually contains `target_layer_name`, instead of
+    assuming it is always full_model.layers[0]. Many transfer-
+    learning models put an InputLayer first, so hardcoding
+    index 0 silently grabs the wrong layer and Grad-CAM ends up
+    producing nothing useful.
+    Returns (base_model, index_of_base_model_in_full_model.layers).
+    """
+
+    for index, layer in enumerate(full_model.layers):
+
+        # A nested model (VGG16 base) exposes its own .layers list.
+        if hasattr(layer, "layers"):
+
+            try:
+                layer.get_layer(target_layer_name)
+                return layer, index
+
+            except (ValueError, Exception):
+                continue
+
+    # Fallback: maybe the target layer sits directly on the
+    # outer model (no nesting at all).
+    try:
+        full_model.get_layer(target_layer_name)
+        return full_model, -1
+    except Exception:
+        pass
+
+    return None, None
+
+
+def _finish_heatmap(heatmap, image_array):
+
+    heatmap = tf.maximum(heatmap, 0)
+    maximum = tf.reduce_max(heatmap)
+    heatmap = heatmap / (maximum + 1e-8)
+
+    heatmap = cv2.resize(
+        heatmap.numpy(),
+        IMAGE_SIZE,
+        interpolation=cv2.INTER_CUBIC,
+    )
+
+    heatmap = np.clip(heatmap, 0, 1)
+
+    heatmap_color = cv2.applyColorMap(
+        (heatmap * 255).astype(np.uint8),
+        cv2.COLORMAP_JET,
+    )
+
+    heatmap_color = cv2.cvtColor(
+        heatmap_color,
+        cv2.COLOR_BGR2RGB,
+    )
+
+    image_array = np.clip(image_array, 0, 255).astype(np.uint8)
+
+    overlay = cv2.addWeighted(
+        image_array,
+        0.60,
+        heatmap_color,
+        0.40,
+        0,
+    )
+
+    return overlay
+
+
+def _gradcam_direct(image_array, model_input, base_model, base_index):
+    """
+    Approach 1: build one Model from the outer model's inputs to
+    [target conv layer output, final prediction]. Works when the
+    base model is nested cleanly inside a Functional model.
+    """
+
+    if base_index == -1:
+        target_output = base_model.get_layer(GRADCAM_LAYER).output
+    else:
+        target_output = base_model.get_layer(GRADCAM_LAYER).output
+
+    grad_model = tf.keras.models.Model(
+        inputs=model.inputs,
+        outputs=[target_output, model.output],
+    )
+
+    with tf.GradientTape() as tape:
+
+        conv_output, prediction = grad_model(
+            model_input,
+            training=False,
+        )
+
+        tape.watch(conv_output)
+
+        loss = prediction[:, 0]
+
+    gradients = tape.gradient(loss, conv_output)
+
+    if gradients is None:
+        raise ValueError(
+            "Gradient computation returned None — the conv layer "
+            "output is disconnected from the model's output graph."
+        )
+
+    pooled_gradients = tf.reduce_mean(gradients, axis=(1, 2))[0]
+    conv_output = conv_output[0]
+
+    heatmap = tf.reduce_sum(
+        conv_output * pooled_gradients[tf.newaxis, tf.newaxis, :],
+        axis=-1,
+    )
+
+    return _finish_heatmap(heatmap, image_array)
+
+
+def _gradcam_two_stage(image_array, model_input, base_model, base_index):
+    """
+    Approach 2 (fallback): some transfer-learning models raise a
+    'graph disconnected' error with the direct approach because the
+    nested base model's layer.output tensor was created in a
+    different call context than the outer model. This rebuilds the
+    forward pass explicitly in two stages so gradients can flow:
+    conv features -> rest of base model -> head layers -> prediction.
+    """
+
+    target_layer = base_model.get_layer(GRADCAM_LAYER)
+
+    dual_extractor = tf.keras.models.Model(
+        inputs=base_model.input,
+        outputs=[target_layer.output, base_model.output],
+    )
+
+    head_layers = model.layers[base_index + 1:] if base_index >= 0 else []
+
+    inputs = tf.convert_to_tensor(model_input, dtype=tf.float32)
+
+    with tf.GradientTape() as tape:
+
+        conv_output, base_features = dual_extractor(
+            inputs,
+            training=False,
+        )
+
+        tape.watch(conv_output)
+
+        x = base_features
+
+        for layer in head_layers:
+            x = layer(x, training=False)
+
+        loss = x[:, 0]
+
+    gradients = tape.gradient(loss, conv_output)
+
+    if gradients is None:
+        raise ValueError(
+            "Gradient computation returned None in the two-stage "
+            "fallback as well."
+        )
+
+    pooled_gradients = tf.reduce_mean(gradients, axis=(1, 2))[0]
+    conv_output = conv_output[0]
+
+    heatmap = tf.reduce_sum(
+        conv_output * pooled_gradients[tf.newaxis, tf.newaxis, :],
+        axis=-1,
+    )
+
+    return _finish_heatmap(heatmap, image_array)
+
+
 def make_gradcam(image_array, model_input):
+    """
+    Returns (overlay_image, error_message_or_None). The caller
+    decides how to surface a failure — we no longer swallow the
+    error silently, since a silent fallback to the plain image
+    looked identical to a working-but-uninformative Grad-CAM and
+    made the bug impossible to diagnose from the UI.
+    """
+
+    base_model, base_index = find_base_model(model, GRADCAM_LAYER)
+
+    if base_model is None:
+        return image_array, (
+            f"Could not find a layer named '{GRADCAM_LAYER}' "
+            "anywhere in the model (checked nested sub-models too). "
+            "Check GRADCAM_LAYER against the actual base model's "
+            "layer names."
+        )
 
     try:
+        return _gradcam_direct(
+            image_array, model_input, base_model, base_index
+        ), None
 
-        base_model = model.layers[0]
+    except Exception as direct_error:
 
-        grad_model = tf.keras.models.Model(
-            inputs=model.inputs,
-            outputs=[
-                base_model.get_layer(
-                    GRADCAM_LAYER
-                ).output,
-                model.output,
-            ],
-        )
+        try:
+            return _gradcam_two_stage(
+                image_array, model_input, base_model, base_index
+            ), None
 
-        with tf.GradientTape() as tape:
+        except Exception as fallback_error:
 
-            conv_output, prediction = grad_model(
-                model_input,
-                training=False,
+            error_message = (
+                "Direct approach failed: "
+                f"{direct_error}\n\n"
+                "Two-stage fallback also failed: "
+                f"{fallback_error}"
             )
 
-            loss = prediction[:, 0]
-
-        gradients = tape.gradient(
-            loss,
-            conv_output,
-        )
-
-        pooled_gradients = tf.reduce_mean(
-            gradients,
-            axis=(1, 2),
-        )
-
-        conv_output = conv_output[0]
-
-        pooled_gradients = pooled_gradients[0]
-
-        heatmap = tf.reduce_sum(
-            conv_output
-            * pooled_gradients[tf.newaxis, tf.newaxis, :],
-            axis=-1,
-        )
-
-        heatmap = tf.maximum(
-            heatmap,
-            0,
-        )
-
-        maximum = tf.reduce_max(
-            heatmap
-        )
-
-        heatmap = heatmap / (
-            maximum + 1e-8
-        )
-
-        heatmap = cv2.resize(
-            heatmap.numpy(),
-            IMAGE_SIZE,
-            interpolation=cv2.INTER_CUBIC,
-        )
-
-        heatmap = np.clip(
-            heatmap,
-            0,
-            1,
-        )
-
-        heatmap_color = cv2.applyColorMap(
-            (heatmap * 255).astype(np.uint8),
-            cv2.COLORMAP_JET,
-        )
-
-        heatmap_color = cv2.cvtColor(
-            heatmap_color,
-            cv2.COLOR_BGR2RGB,
-        )
-
-        image_array = np.clip(
-            image_array,
-            0,
-            255,
-        ).astype(np.uint8)
-
-        overlay = cv2.addWeighted(
-            image_array,
-            0.60,
-            heatmap_color,
-            0.40,
-            0,
-        )
-
-        return overlay
-
-    except Exception:
-
-        # If Grad-CAM cannot be generated,
-        # return the original image instead of crashing the app.
-        return image_array
+            return image_array, error_message
 
 
 # ============================================================
@@ -550,7 +668,7 @@ def analyze(image):
         model_input
     )
 
-    gradcam = make_gradcam(
+    gradcam, gradcam_error = make_gradcam(
         arr,
         model_input,
     )
@@ -559,6 +677,7 @@ def analyze(image):
         arr,
         gradcam,
         score,
+        gradcam_error,
     )
 
 
@@ -598,26 +717,28 @@ def interpretation(score):
     elif score >= 0.15:
 
         return {
-            "title": "Lower-risk pattern",
+            "title": "Borderline — below threshold",
             "icon": "🟡",
             "action": "No automatic flag",
             "message": (
                 "The score is below the project's review "
-                "threshold. The model did not trigger a "
-                "review signal, but this does not prove "
-                "that image quality is clinically acceptable."
+                "threshold, but close to it. The model did "
+                "not trigger a review signal, but this does "
+                "not prove that image quality is clinically "
+                "acceptable."
             ),
         }
 
     else:
 
         return {
-            "title": "Low-risk pattern",
+            "title": "Low quality-risk",
             "icon": "🟢",
             "action": "No automatic flag",
             "message": (
                 "The model produced a relatively low "
-                "quality-risk score."
+                "quality-risk score, well below the review "
+                "threshold."
             ),
         }
 
@@ -632,6 +753,7 @@ def add_result(
     gradcam,
     score,
     metadata,
+    gradcam_error=None,
 ):
 
     existing_names = [
@@ -648,6 +770,7 @@ def add_result(
                 "gradcam": gradcam,
                 "score": score,
                 "metadata": metadata,
+                "gradcam_error": gradcam_error,
             }
         )
 
@@ -960,7 +1083,7 @@ elif st.session_state.page == "Analyze":
 
                             metadata = {}
 
-                        arr, gradcam, score = analyze(
+                        arr, gradcam, score, gradcam_error = analyze(
                             image
                         )
 
@@ -970,11 +1093,23 @@ elif st.session_state.page == "Analyze":
                         gradcam,
                         score,
                         metadata,
+                        gradcam_error,
                     )
 
-                    st.success(
-                        f"{file.name} analyzed successfully."
-                    )
+                    if gradcam_error:
+                        st.success(
+                            f"{file.name} analyzed successfully "
+                            "(score computed normally)."
+                        )
+                        st.warning(
+                            "Grad-CAM explanation could not be "
+                            "generated for this image — see the "
+                            "Results page for details."
+                        )
+                    else:
+                        st.success(
+                            f"{file.name} analyzed successfully."
+                        )
 
                 except Exception as exc:
 
@@ -1112,7 +1247,7 @@ elif st.session_state.page == "Demos":
                                 "Analyzing demo case..."
                             ):
 
-                                arr, gradcam, score = (
+                                arr, gradcam, score, gradcam_error = (
                                     analyze(
                                         demo_image
                                     )
@@ -1124,6 +1259,7 @@ elif st.session_state.page == "Demos":
                                 gradcam,
                                 score,
                                 {},
+                                gradcam_error,
                             )
 
                             navigate("Results")
@@ -1374,6 +1510,19 @@ elif st.session_state.page == "Results":
                     "clinical acceptability."
                 )
 
+            st.caption(
+                "🏥 **Intended future direction:** on its own, one "
+                "flagged image is only a per-image signal. The "
+                "actual goal for this concept is protocol-level "
+                "review — if flagged patterns keep appearing across "
+                "many scans on the same dose-reduction protocol, "
+                "that is a signal for a hospital's physicists and "
+                "radiologists to reconsider whether that protocol "
+                "is calibrated correctly, not a trigger to rescan "
+                "any single patient. See the batch summary above "
+                "(when analyzing multiple images) for this view."
+            )
+
         st.divider()
 
         # ----------------------------------------------------
@@ -1388,6 +1537,17 @@ elif st.session_state.page == "Results":
             "Grad-CAM provides a visual explanation of where "
             "the model's prediction was influenced."
         )
+
+        if result.get("gradcam_error"):
+
+            st.warning(
+                "Grad-CAM could not be generated for this image, "
+                "so the plain input image is shown on the right "
+                "instead of a heatmap."
+            )
+
+            with st.expander("Debug details"):
+                st.code(result["gradcam_error"])
 
         image_col, heatmap_col = st.columns(
             2,
@@ -1406,7 +1566,11 @@ elif st.session_state.page == "Results":
 
             st.image(
                 result["gradcam"],
-                caption="Grad-CAM — model attention",
+                caption=(
+                    "Grad-CAM — model attention"
+                    if not result.get("gradcam_error")
+                    else "Grad-CAM unavailable (see warning above)"
+                ),
                 use_container_width=True,
             )
 
@@ -1728,6 +1892,37 @@ elif st.session_state.page == "Learn":
         "The purpose of this prototype is to explore the concept "
         "of AI-assisted image-quality review — not to replace "
         "professional judgment."
+    )
+
+    st.divider()
+
+    st.markdown(
+        "### References"
+    )
+
+    st.write(
+        "This project's framing — balancing image quality against "
+        "dose, rather than minimizing dose alone — draws on the "
+        "Acceptable Quality Dose (AQD) concept as applied to CT "
+        "practice in Pakistan:"
+    )
+
+    st.markdown(
+        "- Yaseen, M., Nishtar, T., Kharita, M.H., et al. "
+        "*Development of Acceptable Quality Dose (AQD) and "
+        "image quality-related diagnostic reference levels for "
+        "common computed tomography investigations in a tertiary "
+        "care public sector hospital of Khyber Pakhtunkhwa, "
+        "Pakistan.* Japanese Journal of Radiology, 42, 1479–1492 "
+        "(2024). [doi.org/10.1007/s11604-024-01627-y]"
+        "(https://doi.org/10.1007/s11604-024-01627-y)"
+    )
+
+    st.caption(
+        "Cited for its dose-optimization framing (AQD/DRL), not "
+        "as a source of training data — this prototype's dataset "
+        "is the separate, public LDCT-and-Projection-data archive "
+        "referenced below."
     )
 
     st.divider()
