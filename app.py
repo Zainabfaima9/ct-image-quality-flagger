@@ -1196,8 +1196,8 @@ elif st.session_state.page == "Demos":
                 "sample_flagged_1.png",
             ),
             (
-                "Demo Case 4",
-                "sample_flagged_2.png",
+                "Demo Case 4 — DICOM",
+                "demo_ct.dcm",
             ),
         ]
 
@@ -1221,17 +1221,30 @@ elif st.session_state.page == "Demos":
                     border=True
                 ):
 
-                    if os.path.exists(path):
+                   if os.path.exists(path):
 
-                        demo_image = (
-                            Image.open(path)
-                            .convert("RGB")
-                        )
+    if filename.lower().endswith(".dcm"):
 
-                        st.image(
-                            demo_image,
-                            use_container_width=True,
-                        )
+        with open(path, "rb") as f:
+            dicom_data = f.read()
+
+        demo_image, metadata = dicom_to_image(
+            dicom_data
+        )
+
+    else:
+
+        demo_image = (
+            Image.open(path)
+            .convert("RGB")
+        )
+
+        metadata = {}
+
+    st.image(
+        demo_image,
+        use_container_width=True,
+    )
 
                         st.markdown(
                             f"**{title}**"
