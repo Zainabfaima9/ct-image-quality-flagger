@@ -255,4 +255,5 @@ Yaseen, M., Nishtar, T., Kharita, M.H., et al. *Development of Acceptable Qualit
 
 **Zainab Fatima** — Medical Imaging Technology student, building at the intersection of medical imaging, AI, and healthcare systems. This project was built independently, without institutional data access, as part of an application to the **Erasmus Mundus Medical Technology and Healthcare Business (EMMaH)** program.
 
-📫 Add your LinkedIn / email / portfolio link here.
+📫https://www.linkedin.com/in/zainab-fatima-03aab23a8?utm_source=share_via&utm_content=profile&utm_medium=member_android
+📧zf7767027@gmail.com
