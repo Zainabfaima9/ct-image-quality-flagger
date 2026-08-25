@@ -178,7 +178,7 @@ Measured on **held-out test patients never seen during training**:
 
 ## 👁️ Explainability — Grad-CAM
 
-> Add a side-by-side example here once you have one: `assets/gradcam-example.png` — an input CT slice next to its Grad-CAM heatmap.
+
 
 ![Grad-CAM example](assets/screenshot-gradcam.png)
 
@@ -252,7 +252,7 @@ Yaseen, M., Nishtar, T., Kharita, M.H., et al. *Development of Acceptable Qualit
 
 ## 👋 About the author
 
-**Zainab Fatima** — Medical Imaging Technology student, building at the intersection of medical imaging, AI, and healthcare systems. This project was built independently, without institutional data access, as part of an application to the **Erasmus Mundus Medical Technology and Healthcare Business (EMMaH)** program.
+**Zainab Fatima** — Medical Imaging Technology student, building at the intersection of medical imaging, AI, and healthcare systems. This project was built independently, without institutional data access.
 
 📫https://www.linkedin.com/in/zainab-fatima-03aab23a8?utm_source=share_via&utm_content=profile&utm_medium=member_android
 
