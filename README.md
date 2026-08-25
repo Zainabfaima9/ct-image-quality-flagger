@@ -47,7 +47,7 @@ Built independently — no mentor, no hospital access, no coding background at t
 - [Explainability — Grad-CAM](#-explainability--grad-cam)
 - [Tech stack](#-tech-stack)
 - [Project structure](#-project-structure)
-- [Running it locally](#-running-it-locally)
+- [Running it locally](#-Running-it-locally)
 - [Limitations, honestly](#-limitations-honestly)
 - [Future work](#-future-work)
 - [References](#-references)
