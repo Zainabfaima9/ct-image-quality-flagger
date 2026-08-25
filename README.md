@@ -181,7 +181,7 @@ Measured on **held-out test patients never seen during training**:
 
 > Add a side-by-side example here once you have one: `assets/gradcam-example.png` — an input CT slice next to its Grad-CAM heatmap.
 
-![Grad-CAM example](assets/gradcam-example.png)
+![Grad-CAM example](assets/screenshot-gradcam.png)
 
 Grad-CAM heatmaps consistently concentrate on soft-tissue and organ-boundary regions rather than background — suggesting the model weighs noise by its impact on diagnostically relevant structures, rather than just raw noise magnitude. This doesn't prove clinical relevance on its own, but it's a much more reassuring signal than a model that lights up random background pixels.
 
